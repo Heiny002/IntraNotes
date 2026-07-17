@@ -55,14 +55,16 @@ The `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, and `ANTHROPIC_API_KEY` entri
 
 ### 3. Set up the database
 
-Run the migrations in `supabase/migrations/` against your project, in order. Either with the Supabase CLI:
+**Easiest:** open the Supabase dashboard → **SQL Editor** → **New query**, paste the entire contents of [`supabase/setup.sql`](supabase/setup.sql), and click **Run**. That single script runs all migrations at once.
+
+**Or** with the Supabase CLI:
 
 ```bash
 supabase link --project-ref <your-ref>
 supabase db push
 ```
 
-…or by pasting each `.sql` file into the Supabase SQL editor. `003_seed_data.sql` is optional (adds a welcome note). This creates the tables, the `hybrid_search` / `match_notes_by_embedding` functions, row-level security policies, and the `media` storage bucket.
+Either way this creates the tables, the `hybrid_search` / `match_notes_by_embedding` functions, row-level security policies, and the `media` storage bucket. (`supabase/setup.sql` also inserts an optional welcome note.)
 
 ### 4. Deploy Edge Functions (optional — enables AI features)
 
