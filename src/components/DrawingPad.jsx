@@ -1,8 +1,8 @@
 import { useRef, useCallback } from 'react'
 import { Excalidraw } from '@excalidraw/excalidraw'
-import { X, Download, Check } from 'lucide-react'
+import { X, Check } from 'lucide-react'
 
-export default function DrawingPad({ noteId, onClose, onSave }) {
+export default function DrawingPad({ onClose, onSave }) {
   const excalidrawRef = useRef(null)
 
   const handleSave = useCallback(async () => {

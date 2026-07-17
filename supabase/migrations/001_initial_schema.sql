@@ -35,12 +35,13 @@ create table if not exists notes (
   id          uuid primary key default uuid_generate_v4(),
   title       text not null default 'Untitled',
   content     jsonb not null default '{}',         -- TipTap JSON doc
+  content_text text not null default '',            -- plain-text extraction of `content`, kept in sync by the client
   folder_id   uuid references folders(id) on delete set null,
   is_pinned   boolean not null default false,
   word_count  integer not null default 0,
   embedding   vector(1536),                        -- OpenAI text-embedding-3-small
   fts         tsvector generated always as (
-                to_tsvector('english', coalesce(title, '') || ' ' || coalesce(content->>'text', ''))
+                to_tsvector('english', coalesce(title, '') || ' ' || coalesce(content_text, ''))
               ) stored,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()

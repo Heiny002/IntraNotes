@@ -1,12 +1,12 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ChevronRight, ChevronDown, FolderPlus, FilePlus,
-  LayoutDashboard, Tag, GitBranch, LogOut, Wifi, WifiOff,
+  LayoutDashboard, Tag, GitBranch, LogOut, WifiOff,
   Menu
 } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { createNote, createFolder, deleteNote, deleteFolder } from '../lib/supabase'
+import { createFolder, deleteNote } from '../lib/supabase'
 import { enqueueOutbox } from '../lib/offline'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
@@ -15,7 +15,7 @@ function FolderNode({ folder, depth = 0, notes, allFolders, onRefresh }) {
   const { id: activeNoteId } = useParams()
   const navigate = useNavigate()
   const [open, setOpen] = useState(depth === 0)
-  const { isOnline, setActiveNoteId, setRightPanelMode } = useStore()
+  const { isOnline } = useStore()
 
   const children = allFolders.filter((f) => f.parent_id === folder.id)
   const folderNotes = notes.filter((n) => n.folder_id === folder.id)
@@ -91,7 +91,6 @@ function FolderNode({ folder, depth = 0, notes, allFolders, onRefresh }) {
 function NoteItem({ note, depth, active, onRefresh }) {
   const navigate = useNavigate()
   const { setActiveNoteId } = useStore()
-  const [menu, setMenu] = useState(false)
 
   function open() {
     setActiveNoteId(note.id)

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 import { fetchGraphData } from '../lib/supabase'
 import { useStore } from '../lib/store'
 

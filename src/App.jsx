@@ -6,7 +6,7 @@ import AuthPage from './pages/AuthPage'
 import MainLayout from './pages/MainLayout'
 
 export default function App() {
-  const { session, setSession } = useStore()
+  const { session, authReady, setSession } = useStore()
 
   useEffect(() => {
     // Hydrate session
@@ -17,8 +17,8 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [setSession])
 
-  // null = loading, object = authed, falsy = unauthed
-  if (session === null) {
+  // Show the loading spinner only until the first session check resolves.
+  if (!authReady) {
     return (
       <div className="h-screen bg-surface-1 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />

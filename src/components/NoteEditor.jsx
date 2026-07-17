@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEditor, EditorContent, Extension } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -18,19 +18,21 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { common, createLowlight } from 'lowlight'
 import { Mark } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import {
-  Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code, Link2,
+  Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code,
   List, ListOrdered, CheckSquare, Table as TableIcon, Image as ImageIcon,
   AlignLeft, AlignCenter, AlignRight, Sparkles, Loader2, Link as LinkIcon,
   Pen
 } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { fetchNote, updateNote, fetchNotes, syncLinks, uploadMedia } from '../lib/supabase'
+import { fetchNote, updateNote, syncLinks, uploadMedia, createNote } from '../lib/supabase'
 import { cacheNote, enqueueOutbox } from '../lib/offline'
 import { generateEmbedding, suggestLinks, summarizeUrl, extractWikiLinks } from '../lib/ai'
-import BacklinksPanel from './BacklinksPanel'
-import DrawingPad from './DrawingPad'
 import toast from 'react-hot-toast'
+
+// Excalidraw is heavy (~2 MB) — only load it when the drawing pad opens.
+const DrawingPad = lazy(() => import('./DrawingPad'))
 
 const lowlight = createLowlight(common)
 
@@ -48,16 +50,55 @@ const WikiLinkMark = Mark.create({
   },
 })
 
-// [[...]] input rule
+// Scan the doc for [[Title]] spans and decorate them as clickable wiki-links.
+const WIKILINK_RE = /\[\[([^[\]]+)\]\]/g
+
+function buildWikiLinkDecorations(doc) {
+  const decorations = []
+  doc.descendants((node, pos) => {
+    if (!node.isText || !node.text) return
+    WIKILINK_RE.lastIndex = 0
+    let match
+    while ((match = WIKILINK_RE.exec(node.text)) !== null) {
+      const start = pos + match.index
+      const end = start + match[0].length
+      decorations.push(
+        Decoration.inline(start, end, {
+          class: 'wiki-link',
+          'data-wiki-title': match[1].trim(),
+        })
+      )
+    }
+  })
+  return DecorationSet.create(doc, decorations)
+}
+
+// Styles [[...]] inline and routes clicks to the linked note.
 const WikiLinkExtension = Extension.create({
-  name: 'wikiLinkInput',
+  name: 'wikiLinkDecoration',
+  addOptions() {
+    return { onClickLink: () => {} }
+  },
   addProseMirrorPlugins() {
+    const { onClickLink } = this.options
     return [
       new Plugin({
-        key: new PluginKey('wikiLinkInput'),
+        key: new PluginKey('wikiLinkDecoration'),
+        state: {
+          init: (_, { doc }) => buildWikiLinkDecorations(doc),
+          apply: (tr, old) => (tr.docChanged ? buildWikiLinkDecorations(tr.doc) : old),
+        },
         props: {
-          handleTextInput(view, from, to, text) {
-            // handled by manual input — keep simple
+          decorations(state) {
+            return this.getState(state)
+          },
+          handleClick(_view, _pos, event) {
+            const el = event.target?.closest?.('[data-wiki-title]')
+            const title = el?.getAttribute('data-wiki-title')
+            if (title) {
+              onClickLink(title)
+              return true
+            }
             return false
           },
         },
@@ -71,7 +112,7 @@ const AUTOSAVE_DELAY = 1500
 export default function NoteEditor({ onLinksChange }) {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isOnline, setActiveNoteId, setRightPanelMode, rightPanelMode, notes } = useStore()
+  const { isOnline, setActiveNoteId } = useStore()
 
   const [note, setNote] = useState(null)
   const [title, setTitle] = useState('')
@@ -86,10 +127,33 @@ export default function NoteEditor({ onLinksChange }) {
   const saveTimer = useRef(null)
   const titleRef = useRef(null)
 
+  // Navigate to a [[wiki-linked]] note, creating it if it doesn't exist yet.
+  async function handleWikiLinkClick(title) {
+    const state = useStore.getState()
+    const existing = state.notes.find(
+      (n) => (n.title || '').trim().toLowerCase() === title.trim().toLowerCase()
+    )
+    if (existing) {
+      navigate(`/note/${existing.id}`)
+      return
+    }
+    const current = state.notes.find((n) => n.id === state.activeNoteId)
+    const folder_id = current?.folder_id ?? '00000000-0000-0000-0000-000000000001'
+    try {
+      const created = await createNote({ title: title.trim(), content: {}, folder_id })
+      state.addNote(created)
+      toast.success(`Created "${title.trim()}"`)
+      navigate(`/note/${created.id}`)
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
+
   useEffect(() => {
     setActiveNoteId(id)
     loadNote()
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   async function loadNote() {
@@ -123,7 +187,7 @@ export default function NoteEditor({ onLinksChange }) {
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       CodeBlockLowlight.configure({ lowlight }),
       WikiLinkMark,
-      WikiLinkExtension,
+      WikiLinkExtension.configure({ onClickLink: handleWikiLinkClick }),
     ],
     content: '',
     editorProps: {
@@ -139,6 +203,7 @@ export default function NoteEditor({ onLinksChange }) {
     if (editor && note?.content && Object.keys(note.content).length > 0) {
       editor.commands.setContent(note.content, false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, note?.id])
 
   function scheduleSave(content) {
@@ -151,7 +216,7 @@ export default function NoteEditor({ onLinksChange }) {
     setSaving(true)
     const text = editor.getText()
     const wordCount = text.split(/\s+/).filter(Boolean).length
-    const patch = { title, content, word_count: wordCount, updated_at: new Date().toISOString() }
+    const patch = { title, content, content_text: text, word_count: wordCount, updated_at: new Date().toISOString() }
 
     try {
       if (isOnline) {
@@ -354,14 +419,20 @@ export default function NoteEditor({ onLinksChange }) {
 
       {/* Drawing Pad Modal */}
       {showDrawing && (
-        <DrawingPad
-          noteId={id}
-          onClose={() => setShowDrawing(false)}
-          onSave={(dataUrl) => {
-            editor?.chain().focus().setImage({ src: dataUrl, alt: 'Drawing' }).run()
-            setShowDrawing(false)
-          }}
-        />
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <Loader2 className="animate-spin text-accent" size={28} />
+          </div>
+        }>
+          <DrawingPad
+            noteId={id}
+            onClose={() => setShowDrawing(false)}
+            onSave={(dataUrl) => {
+              editor?.chain().focus().setImage({ src: dataUrl, alt: 'Drawing' }).run()
+              setShowDrawing(false)
+            }}
+          />
+        </Suspense>
       )}
     </div>
   )

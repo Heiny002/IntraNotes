@@ -8,7 +8,8 @@ export const useStore = create(
   subscribeWithSelector((set, get) => ({
     // ── Auth ──────────────────────────────────────────────────────────────
     session: null,
-    setSession: (session) => set({ session }),
+    authReady: false, // flips true once the first getSession() resolves
+    setSession: (session) => set({ session, authReady: true }),
 
     // ── Folders ───────────────────────────────────────────────────────────
     folders: [],

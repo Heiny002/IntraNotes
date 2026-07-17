@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Tag, Plus, Loader2, X } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { fetchNoteTags, setNoteTags, createTag, fetchTags } from '../lib/supabase'
@@ -8,7 +7,6 @@ import toast from 'react-hot-toast'
 const TAG_COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#f97316']
 
 export default function TagBrowser({ noteId }) {
-  const navigate = useNavigate()
   const { tags: allTags, setTags } = useStore()
   const [noteTags, setNoteTagsState] = useState([])
   const [loading, setLoading] = useState(true)

@@ -3,6 +3,8 @@ import { Routes, Route } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { fetchFolders, fetchNotes, fetchTags } from '../lib/supabase'
 import { cacheFolders, cacheNote, getCachedFolders, getCachedNotes, getOutboxCount } from '../lib/offline'
+import { useRealtimeSync } from '../hooks/useRealtimeSync'
+import { useOfflineSync } from '../hooks/useOfflineSync'
 import Sidebar from '../components/Sidebar'
 import NoteEditor from '../components/NoteEditor'
 import SearchModal from '../components/SearchModal'
@@ -43,6 +45,10 @@ export default function MainLayout() {
   }, [isOnline, setFolders, setNotes, setTags, setOutboxCount])
 
   useEffect(() => { loadData() }, [loadData])
+
+  // Live sync: realtime note changes + flush offline outbox when back online
+  useRealtimeSync()
+  useOfflineSync()
 
   // Keyboard shortcuts
   useEffect(() => {

@@ -26,6 +26,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Excalidraw + TipTap pull in large chunks; allow precaching up to 5 MiB.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
@@ -43,5 +45,18 @@ export default defineConfig({
   ],
   resolve: {
     alias: { '@': '/src' }
-  }
+  },
+  build: {
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          excalidraw: ['@excalidraw/excalidraw'],
+          tiptap: ['@tiptap/react', '@tiptap/starter-kit', '@tiptap/core'],
+          d3: ['d3'],
+          vendor: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js'],
+        },
+      },
+    },
+  },
 })
