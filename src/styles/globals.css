@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  :root {
+    --scrollbar-track: #0f172a;
+    --scrollbar-thumb: #334155;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+  html { font-size: 15px; }
+  body { overflow: hidden; }
+}
+
+@layer components {
+  /* TipTap editor styles */
+  .tiptap {
+    @apply outline-none min-h-[calc(100vh-12rem)] text-ink leading-relaxed;
+  }
+  .tiptap p { @apply mb-3; }
+  .tiptap h1 { @apply text-3xl font-bold text-white mb-4 mt-6; }
+  .tiptap h2 { @apply text-2xl font-semibold text-white mb-3 mt-5; }
+  .tiptap h3 { @apply text-xl font-semibold text-white mb-2 mt-4; }
+  .tiptap ul  { @apply list-disc pl-6 mb-3 space-y-1; }
+  .tiptap ol  { @apply list-decimal pl-6 mb-3 space-y-1; }
+  .tiptap blockquote { @apply border-l-4 border-accent pl-4 italic text-ink-muted my-4; }
+  .tiptap code { @apply bg-surface-2 text-pink-400 rounded px-1.5 py-0.5 font-mono text-sm; }
+  .tiptap pre  { @apply bg-surface-2 rounded-lg p-4 my-4 overflow-x-auto; }
+  .tiptap pre code { @apply bg-transparent text-ink p-0; }
+  .tiptap a   { @apply text-accent underline underline-offset-2 hover:text-accent-hover; }
+  .tiptap hr  { @apply border-surface-3 my-6; }
+
+  /* Wiki link mark */
+  .tiptap .wiki-link {
+    @apply text-indigo-400 cursor-pointer hover:text-indigo-300 bg-indigo-900/20 rounded px-0.5;
+  }
+
+  /* Table */
+  .tiptap table { @apply w-full border-collapse my-4; }
+  .tiptap th { @apply bg-surface-2 text-ink font-semibold p-2 border border-surface-3 text-left; }
+  .tiptap td { @apply p-2 border border-surface-3; }
+  .tiptap .selectedCell::after { @apply absolute inset-0 bg-accent/10 pointer-events-none; content: ''; position: absolute; }
+
+  /* Task list */
+  .tiptap ul[data-type="taskList"] { @apply list-none pl-0; }
+  .tiptap ul[data-type="taskList"] li { @apply flex items-start gap-2; }
+  .tiptap ul[data-type="taskList"] li > label input[type="checkbox"] { @apply mt-1 accent-accent; }
+
+  /* Resize handle for table */
+  .tiptap .column-resize-handle { @apply absolute right-0 top-0 bottom-0 w-1 bg-accent cursor-col-resize; }
+
+  /* Sidebar nav items */
+  .nav-item {
+    @apply flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-muted hover:text-ink hover:bg-surface-2 cursor-pointer transition-colors select-none;
+  }
+  .nav-item.active { @apply bg-surface-2 text-ink; }
+
+  /* Panel */
+  .panel { @apply bg-surface-1 border-l border-surface-2 h-full overflow-y-auto flex flex-col; }
+}

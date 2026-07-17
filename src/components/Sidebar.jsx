@@ -1,0 +1,193 @@
+import { useState, useCallback } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import {
+  ChevronRight, ChevronDown, FolderPlus, FilePlus,
+  LayoutDashboard, Tag, GitBranch, LogOut, Wifi, WifiOff,
+  Menu
+} from 'lucide-react'
+import { useStore } from '../lib/store'
+import { createNote, createFolder, deleteNote, deleteFolder } from '../lib/supabase'
+import { enqueueOutbox } from '../lib/offline'
+import { supabase } from '../lib/supabase'
+import toast from 'react-hot-toast'
+
+function FolderNode({ folder, depth = 0, notes, allFolders, onRefresh }) {
+  const { id: activeNoteId } = useParams()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(depth === 0)
+  const { isOnline, setActiveNoteId, setRightPanelMode } = useStore()
+
+  const children = allFolders.filter((f) => f.parent_id === folder.id)
+  const folderNotes = notes.filter((n) => n.folder_id === folder.id)
+
+  async function handleNewNote() {
+    const newNote = { title: 'Untitled', content: {}, folder_id: folder.id }
+    if (isOnline) {
+      try {
+        const { createNote: cn } = await import('../lib/supabase')
+        const created = await cn(newNote)
+        useStore.getState().addNote(created)
+        navigate(`/note/${created.id}`)
+      } catch (e) { toast.error(e.message) }
+    } else {
+      const tempId = crypto.randomUUID()
+      const tempNote = { ...newNote, id: tempId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+      useStore.getState().addNote(tempNote)
+      await enqueueOutbox({ table_name: 'notes', operation: 'insert', record_id: tempId, payload: tempNote })
+      navigate(`/note/${tempId}`)
+    }
+  }
+
+  async function handleNewFolder() {
+    const name = prompt('Folder name:')
+    if (!name) return
+    try {
+      await createFolder({ name, parent_id: folder.id, order: children.length })
+      onRefresh()
+    } catch (e) { toast.error(e.message) }
+  }
+
+  return (
+    <div>
+      <div
+        className={`nav-item group`}
+        style={{ paddingLeft: `${12 + depth * 14}px` }}
+        onClick={() => setOpen(!open)}
+      >
+        <span className="text-ink-faint w-4 shrink-0">
+          {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </span>
+        <span className="flex-1 truncate text-xs font-semibold uppercase tracking-wider text-ink-faint">{folder.name}</span>
+        <span className="hidden group-hover:flex gap-0.5">
+          <button onClick={(e) => { e.stopPropagation(); handleNewNote() }} title="New note"
+            className="p-0.5 rounded hover:bg-surface-3 text-ink-muted hover:text-ink">
+            <FilePlus size={13} />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); handleNewFolder() }} title="New folder"
+            className="p-0.5 rounded hover:bg-surface-3 text-ink-muted hover:text-ink">
+            <FolderPlus size={13} />
+          </button>
+        </span>
+      </div>
+
+      {open && (
+        <>
+          {children.map((child) => (
+            <FolderNode key={child.id} folder={child} depth={depth + 1} notes={notes} allFolders={allFolders} onRefresh={onRefresh} />
+          ))}
+          {folderNotes.map((note) => (
+            <NoteItem key={note.id} note={note} depth={depth + 1} active={note.id === activeNoteId} onRefresh={onRefresh} />
+          ))}
+          {folderNotes.length === 0 && children.length === 0 && (
+            <div style={{ paddingLeft: `${28 + depth * 14}px` }}
+              className="text-xs text-ink-faint py-1 italic">Empty</div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function NoteItem({ note, depth, active, onRefresh }) {
+  const navigate = useNavigate()
+  const { setActiveNoteId } = useStore()
+  const [menu, setMenu] = useState(false)
+
+  function open() {
+    setActiveNoteId(note.id)
+    navigate(`/note/${note.id}`)
+  }
+
+  async function handleDelete(e) {
+    e.stopPropagation()
+    if (!confirm(`Delete "${note.title}"?`)) return
+    try {
+      await deleteNote(note.id)
+      useStore.getState().removeNote(note.id)
+      onRefresh()
+    } catch (e) { toast.error(e.message) }
+  }
+
+  return (
+    <div
+      className={`nav-item group ${active ? 'active' : ''}`}
+      style={{ paddingLeft: `${28 + depth * 14}px` }}
+      onClick={open}
+    >
+      <span className="text-ink-faint shrink-0 text-xs">📄</span>
+      <span className="flex-1 truncate text-sm">{note.title || 'Untitled'}</span>
+      <button
+        onClick={handleDelete}
+        className="hidden group-hover:block p-0.5 rounded hover:bg-surface-3 text-ink-faint hover:text-red-400"
+      >×</button>
+    </div>
+  )
+}
+
+export default function Sidebar({ onRefresh }) {
+  const { folders, notes, isOnline, outboxCount, toggleSidebar, setRightPanelMode, rightPanelMode } = useStore()
+  const navigate = useNavigate()
+
+  const rootFolders = folders.filter((f) => f.parent_id === null)
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-3 border-b border-surface-2">
+        <button onClick={toggleSidebar} className="p-1 rounded hover:bg-surface-2 text-ink-muted hover:text-ink">
+          <Menu size={16} />
+        </button>
+        <span className="font-bold text-white text-sm flex-1">IntraNotes</span>
+        {!isOnline && <WifiOff size={14} className="text-yellow-500" title="Offline" />}
+        {outboxCount > 0 && (
+          <span className="text-xs bg-yellow-900 text-yellow-300 rounded-full px-1.5 py-0.5">{outboxCount}</span>
+        )}
+      </div>
+
+      {/* Nav icons */}
+      <div className="flex gap-1 px-2 py-2 border-b border-surface-2">
+        <button
+          onClick={() => { setRightPanelMode('graph'); navigate('/') }}
+          title="Graph view"
+          className={`p-1.5 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'graph' ? 'text-accent' : 'text-ink-muted'}`}
+        ><GitBranch size={15} /></button>
+        <button
+          onClick={() => setRightPanelMode('tags')}
+          title="Tags"
+          className={`p-1.5 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'tags' ? 'text-accent' : 'text-ink-muted'}`}
+        ><Tag size={15} /></button>
+        <button
+          onClick={() => setRightPanelMode('backlinks')}
+          title="Backlinks"
+          className={`p-1.5 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'backlinks' ? 'text-accent' : 'text-ink-muted'}`}
+        ><LayoutDashboard size={15} /></button>
+      </div>
+
+      {/* Folder tree */}
+      <div className="flex-1 overflow-y-auto py-2">
+        {rootFolders.map((folder) => (
+          <FolderNode
+            key={folder.id}
+            folder={folder}
+            depth={0}
+            notes={notes}
+            allFolders={folders}
+            onRefresh={onRefresh}
+          />
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="border-t border-surface-2 px-3 py-2">
+        <button onClick={handleSignOut} className="nav-item w-full text-xs text-ink-faint hover:text-red-400">
+          <LogOut size={13} />
+          <span>Sign out</span>
+        </button>
+      </div>
+    </div>
+  )
+}
