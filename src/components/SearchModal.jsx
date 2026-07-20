@@ -18,28 +18,38 @@ export default function SearchModal() {
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
+  const fullTextSearch = useCallback(async (q) => {
+    const { data, error } = await supabase
+      .from('notes')
+      .select('id, title, folder_id, updated_at')
+      .textSearch('fts', q, { type: 'websearch', config: 'english' })
+      .limit(15)
+    if (error) throw error
+    return data || []
+  }, [])
+
   const search = useCallback(async (q) => {
     if (!q.trim()) { setResults([]); return }
     setLoading(true)
     try {
       if (useAI && isOnline) {
-        const { results: r } = await smartSearch(q, 15)
-        setResults(r || [])
-      } else {
-        // Fallback: local full-text via Supabase
-        const { data, error } = await supabase
-          .from('notes')
-          .select('id, title, folder_id, updated_at')
-          .textSearch('fts', q, { type: 'websearch', config: 'english' })
-          .limit(15)
-        if (!error) setResults(data || [])
+        try {
+          const { results: r } = await smartSearch(q, 15)
+          setResults(r || [])
+          return
+        } catch (e) {
+          // AI search (Edge Function) not available — fall back to keyword search.
+          console.warn('AI search unavailable, using keyword search', e)
+        }
       }
+      setResults(await fullTextSearch(q))
     } catch (e) {
       console.error('Search error', e)
+      setResults([])
     } finally {
       setLoading(false)
     }
-  }, [useAI, isOnline])
+  }, [useAI, isOnline, fullTextSearch])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
