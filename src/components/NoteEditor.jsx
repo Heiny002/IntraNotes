@@ -191,7 +191,7 @@ export default function NoteEditor({ onLinksChange }) {
     ],
     content: '',
     editorProps: {
-      attributes: { class: 'tiptap px-8 py-6 max-w-3xl mx-auto' },
+      attributes: { class: 'tiptap px-4 md:px-8 py-6 max-w-3xl mx-auto' },
     },
     onUpdate: ({ editor }) => {
       scheduleSave(editor.getJSON())
@@ -310,7 +310,7 @@ export default function NoteEditor({ onLinksChange }) {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-4 py-2 border-b border-surface-2 bg-surface-0 overflow-x-auto shrink-0">
+      <div className="flex items-center gap-0.5 px-2 md:px-4 py-2 border-b border-surface-2 bg-surface-0 overflow-x-auto shrink-0">
         <ToolBtn onClick={() => editor?.chain().focus().toggleBold().run()} active={editor?.isActive('bold')} title="Bold"><Bold size={14}/></ToolBtn>
         <ToolBtn onClick={() => editor?.chain().focus().toggleItalic().run()} active={editor?.isActive('italic')} title="Italic"><Italic size={14}/></ToolBtn>
         <ToolBtn onClick={() => editor?.chain().focus().toggleUnderline().run()} active={editor?.isActive('underline')} title="Underline"><UnderlineIcon size={14}/></ToolBtn>
@@ -347,7 +347,7 @@ export default function NoteEditor({ onLinksChange }) {
       </div>
 
       {/* Title */}
-      <div className="px-8 pt-8 pb-2 max-w-3xl mx-auto w-full">
+      <div className="px-4 md:px-8 pt-5 md:pt-8 pb-2 max-w-3xl mx-auto w-full">
         <input
           ref={titleRef}
           type="text"
@@ -355,7 +355,7 @@ export default function NoteEditor({ onLinksChange }) {
           onChange={(e) => setTitle(e.target.value)}
           onBlur={onTitleBlur}
           placeholder="Untitled"
-          className="w-full text-4xl font-bold bg-transparent text-white outline-none placeholder-surface-3"
+          className="w-full text-3xl md:text-4xl font-bold bg-transparent text-white outline-none placeholder-surface-3"
         />
       </div>
 

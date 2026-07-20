@@ -41,8 +41,10 @@ export const useStore = create(
     setTags: (tags) => set({ tags }),
 
     // ── UI state ──────────────────────────────────────────────────────────
-    sidebarOpen: true,
+    // Start open on desktop, closed on mobile (drawer).
+    sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
     toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+    setSidebarOpen: (v) => set({ sidebarOpen: v }),
 
     rightPanelMode: null, // null | 'backlinks' | 'tags' | 'graph' | 'drawing'
     setRightPanelMode: (mode) =>

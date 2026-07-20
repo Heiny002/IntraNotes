@@ -1,5 +1,7 @@
 import { useEffect, useCallback } from 'react'
 import { Routes, Route } from 'react-router-dom'
+import { Menu, Search } from 'lucide-react'
+import clsx from 'clsx'
 import { useStore } from '../lib/store'
 import { fetchFolders, fetchNotes, fetchTags } from '../lib/supabase'
 import { cacheFolders, cacheNote, getCachedFolders, getCachedNotes, getOutboxCount } from '../lib/offline'
@@ -16,8 +18,8 @@ import WelcomeScreen from '../components/WelcomeScreen'
 export default function MainLayout() {
   const {
     setFolders, setNotes, setTags,
-    sidebarOpen, rightPanelMode,
-    activeNoteId, searchOpen, isOnline,
+    sidebarOpen, toggleSidebar, setSidebarOpen, rightPanelMode, setRightPanelMode,
+    activeNoteId, searchOpen, setSearchOpen, isOnline,
     setOutboxCount,
   } = useStore()
 
@@ -63,29 +65,78 @@ export default function MainLayout() {
   }, [])
 
   return (
-    <div className="h-screen flex bg-surface-1 overflow-hidden">
-      {/* Sidebar */}
+    <div className="h-[100dvh] flex bg-surface-1 overflow-hidden">
+      {/* Backdrop for the mobile sidebar drawer */}
       {sidebarOpen && (
-        <aside className="w-60 shrink-0 border-r border-surface-2 flex flex-col bg-surface-0">
-          <Sidebar onRefresh={loadData} />
-        </aside>
+        <div
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
       )}
+
+      {/* Sidebar — off-canvas drawer on mobile, collapsible column on desktop */}
+      <aside
+        className={clsx(
+          'z-40 shrink-0 flex flex-col bg-surface-0 border-surface-2',
+          'fixed inset-y-0 left-0 w-64 max-w-[85vw] border-r transition-transform duration-200 ease-out',
+          'md:static md:transition-[width] md:duration-200',
+          sidebarOpen
+            ? 'translate-x-0 md:w-60'
+            : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden md:border-r-0'
+        )}
+      >
+        <Sidebar onRefresh={loadData} />
+      </aside>
 
       {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Routes>
-          <Route path="/" element={<WelcomeScreen />} />
-          <Route path="/note/:id" element={<NoteEditor onLinksChange={loadData} />} />
-        </Routes>
+        {/* Top bar: always on mobile; on desktop only when the sidebar is collapsed */}
+        <header
+          className={clsx(
+            'flex items-center gap-1 h-12 px-2 shrink-0 border-b border-surface-2 bg-surface-0',
+            sidebarOpen && 'md:hidden'
+          )}
+        >
+          <button
+            onClick={toggleSidebar}
+            aria-label="Toggle menu"
+            className="p-2 rounded hover:bg-surface-2 text-ink-muted hover:text-ink"
+          >
+            <Menu size={18} />
+          </button>
+          <span className="flex-1 truncate font-bold text-white text-sm">IntraNotes</span>
+          <button
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+            className="p-2 rounded hover:bg-surface-2 text-ink-muted hover:text-ink"
+          >
+            <Search size={18} />
+          </button>
+        </header>
+
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          <Routes>
+            <Route path="/" element={<WelcomeScreen />} />
+            <Route path="/note/:id" element={<NoteEditor onLinksChange={loadData} />} />
+          </Routes>
+        </div>
       </main>
 
-      {/* Right panel */}
+      {/* Right panel — full-height overlay on mobile, side column on desktop */}
       {rightPanelMode && activeNoteId && (
-        <aside className="w-72 shrink-0 panel">
-          {rightPanelMode === 'backlinks' && <BacklinksPanel noteId={activeNoteId} />}
-          {rightPanelMode === 'tags'      && <TagBrowser noteId={activeNoteId} />}
-          {rightPanelMode === 'graph'     && <GraphView />}
-        </aside>
+        <>
+          <div
+            className="fixed inset-0 z-30 bg-black/50 md:hidden"
+            onClick={() => setRightPanelMode(null)}
+            aria-hidden="true"
+          />
+          <aside className="panel z-40 fixed inset-y-0 right-0 w-80 max-w-[85vw] md:static md:z-auto md:w-72 md:shrink-0">
+            {rightPanelMode === 'backlinks' && <BacklinksPanel noteId={activeNoteId} />}
+            {rightPanelMode === 'tags'      && <TagBrowser noteId={activeNoteId} />}
+            {rightPanelMode === 'graph'     && <GraphView />}
+          </aside>
+        </>
       )}
 
       {/* Search modal */}

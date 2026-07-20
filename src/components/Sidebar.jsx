@@ -11,6 +11,14 @@ import { enqueueOutbox } from '../lib/offline'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 
+// On mobile the sidebar is an overlay drawer — close it after navigating so the
+// content underneath is visible.
+function closeDrawerIfMobile() {
+  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    useStore.getState().setSidebarOpen(false)
+  }
+}
+
 function FolderNode({ folder, depth = 0, notes, allFolders, onRefresh }) {
   const { id: activeNoteId } = useParams()
   const navigate = useNavigate()
@@ -28,6 +36,7 @@ function FolderNode({ folder, depth = 0, notes, allFolders, onRefresh }) {
         const created = await cn(newNote)
         useStore.getState().addNote(created)
         navigate(`/note/${created.id}`)
+        closeDrawerIfMobile()
       } catch (e) { toast.error(e.message) }
     } else {
       const tempId = crypto.randomUUID()
@@ -35,6 +44,7 @@ function FolderNode({ folder, depth = 0, notes, allFolders, onRefresh }) {
       useStore.getState().addNote(tempNote)
       await enqueueOutbox({ table_name: 'notes', operation: 'insert', record_id: tempId, payload: tempNote })
       navigate(`/note/${tempId}`)
+      closeDrawerIfMobile()
     }
   }
 
@@ -58,14 +68,14 @@ function FolderNode({ folder, depth = 0, notes, allFolders, onRefresh }) {
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </span>
         <span className="flex-1 truncate text-xs font-semibold uppercase tracking-wider text-ink-faint">{folder.name}</span>
-        <span className="hidden group-hover:flex gap-0.5">
+        <span className="flex md:hidden md:group-hover:flex gap-0.5">
           <button onClick={(e) => { e.stopPropagation(); handleNewNote() }} title="New note"
-            className="p-0.5 rounded hover:bg-surface-3 text-ink-muted hover:text-ink">
-            <FilePlus size={13} />
+            className="p-1 rounded hover:bg-surface-3 text-ink-muted hover:text-ink">
+            <FilePlus size={14} />
           </button>
           <button onClick={(e) => { e.stopPropagation(); handleNewFolder() }} title="New folder"
-            className="p-0.5 rounded hover:bg-surface-3 text-ink-muted hover:text-ink">
-            <FolderPlus size={13} />
+            className="p-1 rounded hover:bg-surface-3 text-ink-muted hover:text-ink">
+            <FolderPlus size={14} />
           </button>
         </span>
       </div>
@@ -95,6 +105,7 @@ function NoteItem({ note, depth, active, onRefresh }) {
   function open() {
     setActiveNoteId(note.id)
     navigate(`/note/${note.id}`)
+    closeDrawerIfMobile()
   }
 
   async function handleDelete(e) {
@@ -117,7 +128,8 @@ function NoteItem({ note, depth, active, onRefresh }) {
       <span className="flex-1 truncate text-sm">{note.title || 'Untitled'}</span>
       <button
         onClick={handleDelete}
-        className="hidden group-hover:block p-0.5 rounded hover:bg-surface-3 text-ink-faint hover:text-red-400"
+        aria-label="Delete note"
+        className="block md:hidden md:group-hover:block px-1.5 rounded hover:bg-surface-3 text-ink-faint hover:text-red-400"
       >×</button>
     </div>
   )
@@ -150,20 +162,20 @@ export default function Sidebar({ onRefresh }) {
       {/* Nav icons */}
       <div className="flex gap-1 px-2 py-2 border-b border-surface-2">
         <button
-          onClick={() => { setRightPanelMode('graph'); navigate('/') }}
+          onClick={() => { setRightPanelMode('graph'); navigate('/'); closeDrawerIfMobile() }}
           title="Graph view"
-          className={`p-1.5 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'graph' ? 'text-accent' : 'text-ink-muted'}`}
-        ><GitBranch size={15} /></button>
+          className={`p-2 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'graph' ? 'text-accent' : 'text-ink-muted'}`}
+        ><GitBranch size={16} /></button>
         <button
-          onClick={() => setRightPanelMode('tags')}
+          onClick={() => { setRightPanelMode('tags'); closeDrawerIfMobile() }}
           title="Tags"
-          className={`p-1.5 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'tags' ? 'text-accent' : 'text-ink-muted'}`}
-        ><Tag size={15} /></button>
+          className={`p-2 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'tags' ? 'text-accent' : 'text-ink-muted'}`}
+        ><Tag size={16} /></button>
         <button
-          onClick={() => setRightPanelMode('backlinks')}
+          onClick={() => { setRightPanelMode('backlinks'); closeDrawerIfMobile() }}
           title="Backlinks"
-          className={`p-1.5 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'backlinks' ? 'text-accent' : 'text-ink-muted'}`}
-        ><LayoutDashboard size={15} /></button>
+          className={`p-2 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'backlinks' ? 'text-accent' : 'text-ink-muted'}`}
+        ><LayoutDashboard size={16} /></button>
       </div>
 
       {/* Folder tree */}

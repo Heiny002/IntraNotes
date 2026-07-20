@@ -15,14 +15,20 @@
   ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-  html { font-size: 15px; }
-  body { overflow: hidden; }
+  html { font-size: 15px; -webkit-text-size-adjust: 100%; }
+  body { overflow: hidden; overscroll-behavior: none; }
+
+  /* iOS zooms the page when a focused input's font is < 16px. Force 16px on
+     small screens so tapping a field doesn't zoom the whole layout. */
+  @media (max-width: 767px) {
+    input, textarea, select { font-size: 16px !important; }
+  }
 }
 
 @layer components {
   /* TipTap editor styles */
   .tiptap {
-    @apply outline-none min-h-[calc(100vh-12rem)] text-ink leading-relaxed;
+    @apply outline-none min-h-[calc(100dvh-12rem)] text-ink leading-relaxed;
   }
   .tiptap p { @apply mb-3; }
   .tiptap h1 { @apply text-3xl font-bold text-white mb-4 mt-6; }
@@ -61,6 +67,10 @@
     @apply flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-muted hover:text-ink hover:bg-surface-2 cursor-pointer transition-colors select-none;
   }
   .nav-item.active { @apply bg-surface-2 text-ink; }
+  /* Roomier tap targets on touch screens */
+  @media (max-width: 767px) {
+    .nav-item { @apply py-2.5; }
+  }
 
   /* Panel */
   .panel { @apply bg-surface-1 border-l border-surface-2 h-full overflow-y-auto flex flex-col; }
