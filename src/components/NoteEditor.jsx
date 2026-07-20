@@ -229,7 +229,9 @@ export default function NoteEditor({ onLinksChange }) {
         const linkedTitles = extractWikiLinks(content)
         if (linkedTitles.length > 0) {
           const allNotes = useStore.getState().notes
-          const targetIds = linkedTitles.map((t) => allNotes.find((n) => n.title === t)?.id).filter(Boolean)
+          const targetIds = linkedTitles
+            .map((t) => allNotes.find((n) => (n.title || '').trim().toLowerCase() === t.trim().toLowerCase())?.id)
+            .filter(Boolean)
           await syncLinks(id, targetIds)
           if (onLinksChange) onLinksChange()
         }

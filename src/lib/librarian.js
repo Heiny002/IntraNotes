@@ -82,7 +82,7 @@ export async function organizeSingleNote(noteId, { tags = true, links = true } =
         const linkedTitles = extractWikiLinks(newDoc)
         const notes = useStore.getState().notes
         const targetIds = linkedTitles
-          .map((t) => notes.find((n) => n.title === t)?.id)
+          .map((t) => notes.find((n) => (n.title || '').trim().toLowerCase() === t.trim().toLowerCase())?.id)
           .filter(Boolean)
         await syncLinks(noteId, targetIds)
         linksAdded = applied.length
