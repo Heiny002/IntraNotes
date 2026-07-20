@@ -22,13 +22,13 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code,
   List, ListOrdered, CheckSquare, Table as TableIcon, Image as ImageIcon,
-  AlignLeft, AlignCenter, AlignRight, Sparkles, Loader2, Link as LinkIcon,
+  AlignLeft, AlignCenter, AlignRight, Loader2, Link as LinkIcon,
   Pen, Wand2
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { fetchNote, updateNote, syncLinks, uploadMedia, createNote } from '../lib/supabase'
 import { cacheNote, enqueueOutbox } from '../lib/offline'
-import { generateEmbedding, suggestLinks, summarizeUrl, extractWikiLinks } from '../lib/ai'
+import { generateEmbedding, summarizeUrl, extractWikiLinks } from '../lib/ai'
 import { organizeSingleNote } from '../lib/librarian'
 import toast from 'react-hot-toast'
 
@@ -119,8 +119,6 @@ export default function NoteEditor({ onLinksChange }) {
   const [title, setTitle] = useState('')
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
-  const [suggestions, setSuggestions] = useState([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
   const [showUrlModal, setShowUrlModal] = useState(false)
   const [urlInput, setUrlInput] = useState('')
   const [showDrawing, setShowDrawing] = useState(false)
@@ -274,21 +272,6 @@ export default function NoteEditor({ onLinksChange }) {
   }
 
   // AI: suggest links
-  async function handleSuggestLinks() {
-    if (!editor) return
-    setAiLoading(true)
-    setSuggestions([])
-    try {
-      const text = `${title}\n${editor.getText()}`
-      const results = await suggestLinks(id, text)
-      setSuggestions(results)
-      setShowSuggestions(true)
-    } catch (e) {
-      toast.error('AI suggest failed: ' + e.message)
-    } finally {
-      setAiLoading(false)
-    }
-  }
 
   // AI: summarize URL
   async function handleSummarizeUrl(e) {
@@ -364,9 +347,6 @@ export default function NoteEditor({ onLinksChange }) {
         <ToolBtn onClick={handleOrganize} disabled={aiLoading} title="AI: tag & link this note">
           {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14}/>}
         </ToolBtn>
-        <ToolBtn onClick={handleSuggestLinks} disabled={aiLoading} title="AI: suggest links">
-          <Sparkles size={14}/>
-        </ToolBtn>
 
         <div className="ml-auto flex items-center gap-2 text-xs text-ink-faint">
           {saving && <span className="flex items-center gap-1"><Loader2 size={11} className="animate-spin"/>Saving</span>}
@@ -404,33 +384,6 @@ export default function NoteEditor({ onLinksChange }) {
       <div className="flex-1 overflow-y-auto">
         <EditorContent editor={editor} />
       </div>
-
-      {/* AI Suggestions Panel */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="border-t border-surface-2 bg-surface-0 px-6 py-4 shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Sparkles size={14} className="text-accent"/> AI Link Suggestions
-            </h4>
-            <button onClick={() => setShowSuggestions(false)} className="text-ink-faint hover:text-ink text-lg">×</button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {suggestions.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => { navigate(`/note/${s.id}`); setShowSuggestions(false) }}
-                className="flex items-start gap-2 bg-surface-2 hover:bg-surface-3 border border-surface-3 rounded-lg px-3 py-2 text-left max-w-xs transition-colors"
-              >
-                <div>
-                  <div className="text-sm font-medium text-white">{s.title}</div>
-                  {s.reason && <div className="text-xs text-ink-muted mt-0.5">{s.reason}</div>}
-                  <div className="text-xs text-accent mt-1">{Math.round((s.vec_score ?? 0) * 100)}% similar</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* URL Summarize Modal */}
       {showUrlModal && (
