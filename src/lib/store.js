@@ -53,6 +53,12 @@ export const useStore = create(
     searchOpen: false,
     setSearchOpen: (v) => set({ searchOpen: v }),
 
+    // Intake modal (paste text / add URL → Uploads folder)
+    intakeOpen: false,
+    intakePrefill: null, // { mode: 'text' | 'url', value: string } | null
+    openIntake: (prefill = null) => set({ intakeOpen: true, intakePrefill: prefill }),
+    closeIntake: () => set({ intakeOpen: false, intakePrefill: null }),
+
     // ── Offline ───────────────────────────────────────────────────────────
     isOnline: navigator.onLine,
     setIsOnline: (v) => set({ isOnline: v }),

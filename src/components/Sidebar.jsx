@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   ChevronRight, ChevronDown, FolderPlus, FilePlus,
   LayoutDashboard, Tag, GitBranch, LogOut, WifiOff,
-  Menu
+  Menu, Plus
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { createFolder, deleteNote } from '../lib/supabase'
@@ -136,7 +136,7 @@ function NoteItem({ note, depth, active, onRefresh }) {
 }
 
 export default function Sidebar({ onRefresh }) {
-  const { folders, notes, isOnline, outboxCount, toggleSidebar, setRightPanelMode, rightPanelMode } = useStore()
+  const { folders, notes, isOnline, outboxCount, toggleSidebar, setRightPanelMode, rightPanelMode, openIntake } = useStore()
   const navigate = useNavigate()
 
   const rootFolders = folders.filter((f) => f.parent_id === null)
@@ -160,7 +160,13 @@ export default function Sidebar({ onRefresh }) {
       </div>
 
       {/* Nav icons */}
-      <div className="flex gap-1 px-2 py-2 border-b border-surface-2">
+      <div className="flex items-center gap-1 px-2 py-2 border-b border-surface-2">
+        <button
+          onClick={() => { openIntake(); closeDrawerIfMobile() }}
+          title="Add from text or URL"
+          className="p-2 rounded hover:bg-surface-2 transition-colors text-ink-muted hover:text-ink"
+        ><Plus size={16} /></button>
+        <span className="w-px h-5 bg-surface-2 mx-0.5" />
         <button
           onClick={() => { setRightPanelMode('graph'); navigate('/'); closeDrawerIfMobile() }}
           title="Graph view"

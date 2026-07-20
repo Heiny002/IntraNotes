@@ -29,6 +29,10 @@
   /* TipTap editor styles */
   .tiptap {
     @apply outline-none min-h-[calc(100dvh-12rem)] text-ink leading-relaxed;
+    /* Guarantee text wraps at the container edge, even long unbroken URLs. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .tiptap p { @apply mb-3; }
   .tiptap h1 { @apply text-3xl font-bold text-white mb-4 mt-6; }

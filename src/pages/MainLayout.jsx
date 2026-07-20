@@ -1,26 +1,48 @@
 import { useEffect, useCallback } from 'react'
-import { Routes, Route } from 'react-router-dom'
-import { Menu, Search } from 'lucide-react'
+import { Routes, Route, useNavigate, useSearchParams } from 'react-router-dom'
+import { Menu, Search, Plus } from 'lucide-react'
 import clsx from 'clsx'
+import toast from 'react-hot-toast'
 import { useStore } from '../lib/store'
 import { fetchFolders, fetchNotes, fetchTags } from '../lib/supabase'
+import { isUrl } from '../lib/intake'
 import { cacheFolders, cacheNote, getCachedFolders, getCachedNotes, getOutboxCount } from '../lib/offline'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useOfflineSync } from '../hooks/useOfflineSync'
 import Sidebar from '../components/Sidebar'
 import NoteEditor from '../components/NoteEditor'
 import SearchModal from '../components/SearchModal'
+import IntakeModal from '../components/IntakeModal'
 import BacklinksPanel from '../components/BacklinksPanel'
 import TagBrowser from '../components/TagBrowser'
 import GraphView from '../components/GraphView'
 import WelcomeScreen from '../components/WelcomeScreen'
+
+// PWA share-target landing: /share?url=&text=&title= opens the intake prefilled.
+function ShareHandler() {
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const openIntake = useStore((s) => s.openIntake)
+  useEffect(() => {
+    const url = (params.get('url') || '').trim()
+    const text = (params.get('text') || '').trim()
+    const shared = url || text
+    if (shared) {
+      const asUrl = isUrl(url) || isUrl(text)
+      openIntake({ mode: asUrl ? 'url' : 'text', value: asUrl ? (isUrl(url) ? url : text) : text })
+    }
+    navigate('/', { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return null
+}
 
 export default function MainLayout() {
   const {
     setFolders, setNotes, setTags,
     sidebarOpen, toggleSidebar, setSidebarOpen, rightPanelMode, setRightPanelMode,
     activeNoteId, searchOpen, setSearchOpen, isOnline,
-    setOutboxCount,
+    setOutboxCount, intakeOpen, openIntake,
   } = useStore()
 
   const loadData = useCallback(async () => {
@@ -63,6 +85,34 @@ export default function MainLayout() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
+
+  // If there's a large chunk of text on the clipboard, offer to make a note from
+  // it — but only when clipboard-read permission is already granted, so we never
+  // trigger a surprise permission prompt on load.
+  useEffect(() => {
+    let cancelled = false
+    async function maybeSuggest() {
+      try {
+        if (!navigator.clipboard?.readText || !navigator.permissions?.query) return
+        const perm = await navigator.permissions.query({ name: 'clipboard-read' }).catch(() => null)
+        if (!perm || perm.state !== 'granted') return
+        const clip = (await navigator.clipboard.readText()).trim()
+        if (cancelled || clip.length < 400) return
+        toast((t) => (
+          <span className="flex items-center gap-3">
+            <span className="text-sm">Make a note from your clipboard?</span>
+            <button
+              onClick={() => { toast.dismiss(t.id); openIntake(isUrl(clip) ? { mode: 'url', value: clip } : { mode: 'text', value: clip }) }}
+              className="text-sm font-medium text-accent hover:underline"
+            >Create</button>
+            <button onClick={() => toast.dismiss(t.id)} className="text-sm text-ink-faint hover:text-ink">Dismiss</button>
+          </span>
+        ), { duration: 8000 })
+      } catch { /* ignore */ }
+    }
+    maybeSuggest()
+    return () => { cancelled = true }
+  }, [openIntake])
 
   return (
     <div className="h-[100dvh] flex bg-surface-1 overflow-hidden">
@@ -107,6 +157,13 @@ export default function MainLayout() {
           </button>
           <span className="flex-1 truncate font-bold text-white text-sm">IntraNotes</span>
           <button
+            onClick={() => openIntake()}
+            aria-label="Add note from text or URL"
+            className="p-2 rounded hover:bg-surface-2 text-ink-muted hover:text-ink"
+          >
+            <Plus size={18} />
+          </button>
+          <button
             onClick={() => setSearchOpen(true)}
             aria-label="Search"
             className="p-2 rounded hover:bg-surface-2 text-ink-muted hover:text-ink"
@@ -119,6 +176,7 @@ export default function MainLayout() {
           <Routes>
             <Route path="/" element={<WelcomeScreen />} />
             <Route path="/note/:id" element={<NoteEditor onLinksChange={loadData} />} />
+            <Route path="/share" element={<ShareHandler />} />
           </Routes>
         </div>
       </main>
@@ -141,6 +199,9 @@ export default function MainLayout() {
 
       {/* Search modal */}
       {searchOpen && <SearchModal />}
+
+      {/* Intake modal (paste text / add URL) */}
+      {intakeOpen && <IntakeModal />}
     </div>
   )
 }

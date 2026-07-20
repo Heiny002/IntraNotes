@@ -354,6 +354,13 @@ export default function NoteEditor({ onLinksChange }) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={onTitleBlur}
+          onKeyDown={(e) => {
+            // The title is a single-line field — send Enter/Down into the body.
+            if (e.key === 'Enter' || e.key === 'ArrowDown') {
+              e.preventDefault()
+              editor?.commands.focus('start')
+            }
+          }}
           placeholder="Untitled"
           className="w-full text-3xl md:text-4xl font-bold bg-transparent text-white outline-none placeholder-surface-3"
         />
