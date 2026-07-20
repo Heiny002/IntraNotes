@@ -4,10 +4,11 @@ import toast from 'react-hot-toast'
 
 export default function AuthPage() {
   const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  async function handleMagicLink(e) {
+  async function handleSend(e) {
     e.preventDefault()
     setLoading(true)
     const { error } = await supabase.auth.signInWithOtp({
@@ -17,11 +18,24 @@ export default function AuthPage() {
     setLoading(false)
     if (error) { toast.error(error.message); return }
     setSent(true)
-    toast.success('Check your email for the magic link!')
+    toast.success('Check your email for a sign-in code')
+  }
+
+  // Verifying the code creates the session in THIS context (the PWA), so no
+  // Safari round-trip — the fix for iOS Home Screen web apps.
+  async function handleVerify(e) {
+    e.preventDefault()
+    const token = code.replace(/\s/g, '')
+    if (!token) return
+    setLoading(true)
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
+    setLoading(false)
+    if (error) { toast.error(error.message); return }
+    // Success — App's onAuthStateChange takes over from here.
   }
 
   return (
-    <div className="h-screen bg-surface-0 flex items-center justify-center px-4">
+    <div className="min-h-[100dvh] bg-surface-0 flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-accent mb-4">
@@ -34,14 +48,44 @@ export default function AuthPage() {
         </div>
 
         {sent ? (
-          <div className="bg-surface-2 rounded-xl p-6 text-center border border-surface-3">
-            <div className="text-3xl mb-3">✉️</div>
-            <h2 className="text-white font-semibold mb-2">Magic link sent!</h2>
-            <p className="text-ink-muted text-sm">Check your inbox at <span className="text-ink">{email}</span> and click the link to sign in.</p>
-            <button onClick={() => setSent(false)} className="mt-4 text-sm text-accent hover:underline">Use a different email</button>
-          </div>
+          <form onSubmit={handleVerify} className="bg-surface-2 rounded-xl p-6 border border-surface-3 space-y-4">
+            <div className="text-center">
+              <div className="text-3xl mb-2">✉️</div>
+              <h2 className="text-white font-semibold">Check your email</h2>
+              <p className="text-ink-muted text-sm mt-1">
+                We sent a code to <span className="text-ink">{email}</span>.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink-muted mb-1.5">Enter the 6-digit code</label>
+              <input
+                autoFocus
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                placeholder="123456"
+                className="w-full bg-surface-3 border border-surface-3 rounded-lg px-3 py-2.5 text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-accent tracking-[0.3em] text-center text-lg"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-accent hover:bg-accent-hover text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 text-sm"
+            >
+              {loading ? 'Verifying…' : 'Sign in'}
+            </button>
+            <p className="text-xs text-ink-faint text-center">
+              On a computer? You can also just click the link in the email.
+            </p>
+            <button type="button" onClick={() => { setSent(false); setCode('') }} className="w-full text-sm text-accent hover:underline">
+              Use a different email
+            </button>
+          </form>
         ) : (
-          <form onSubmit={handleMagicLink} className="bg-surface-2 rounded-xl p-6 border border-surface-3 space-y-4">
+          <form onSubmit={handleSend} className="bg-surface-2 rounded-xl p-6 border border-surface-3 space-y-4">
             <div>
               <label className="block text-sm font-medium text-ink-muted mb-1.5">Email address</label>
               <input
@@ -58,9 +102,9 @@ export default function AuthPage() {
               disabled={loading}
               className="w-full bg-accent hover:bg-accent-hover text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 text-sm"
             >
-              {loading ? 'Sending…' : 'Send magic link'}
+              {loading ? 'Sending…' : 'Email me a sign-in code'}
             </button>
-            <p className="text-xs text-ink-faint text-center">No password needed — we'll email you a sign-in link.</p>
+            <p className="text-xs text-ink-faint text-center">No password needed — we&apos;ll email you a code and a link.</p>
           </form>
         )}
       </div>

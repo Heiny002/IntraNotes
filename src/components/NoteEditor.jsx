@@ -26,7 +26,7 @@ import {
   Pen, Wand2
 } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { fetchNote, updateNote, syncLinks, uploadMedia, createNote } from '../lib/supabase'
+import { fetchNote, updateNote, syncLinks, uploadMedia, createNote, fetchNoteTags } from '../lib/supabase'
 import { cacheNote, enqueueOutbox } from '../lib/offline'
 import { generateEmbedding, summarizeUrl, extractWikiLinks } from '../lib/ai'
 import { organizeSingleNote } from '../lib/librarian'
@@ -122,9 +122,17 @@ export default function NoteEditor({ onLinksChange }) {
   const [showUrlModal, setShowUrlModal] = useState(false)
   const [urlInput, setUrlInput] = useState('')
   const [showDrawing, setShowDrawing] = useState(false)
+  const [noteTags, setNoteTagsList] = useState([])
 
   const saveTimer = useRef(null)
   const titleRef = useRef(null)
+
+  // Load this note's tags for the inline chip row.
+  const refreshTags = useCallback(() => {
+    if (!id) return
+    fetchNoteTags(id).then(setNoteTagsList).catch(() => {})
+  }, [id])
+  useEffect(() => { refreshTags() }, [refreshTags])
 
   // Navigate to a [[wiki-linked]] note, creating it if it doesn't exist yet.
   async function handleWikiLinkClick(title) {
@@ -263,6 +271,7 @@ export default function NoteEditor({ onLinksChange }) {
         editor.commands.setContent(fresh.content, false)
       }
       if (onLinksChange) onLinksChange()
+      refreshTags()
       toast.success(`Organized · +${r.tagsAdded} tag${r.tagsAdded === 1 ? '' : 's'} · +${r.linksAdded} link${r.linksAdded === 1 ? '' : 's'}`)
     } catch (e) {
       toast.error('Organize failed: ' + e.message)
@@ -376,6 +385,20 @@ export default function NoteEditor({ onLinksChange }) {
           className="w-full text-2xl md:text-3xl font-bold text-white bg-surface-2/50 border border-surface-3 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-accent focus:border-accent placeholder-ink-faint transition-colors"
         />
       </div>
+      {/* Tags for this note */}
+      {noteTags.length > 0 && (
+        <div className="px-4 md:px-8 pt-2 pb-1 max-w-3xl mx-auto w-full flex flex-wrap gap-1.5">
+          {noteTags.map((t) => (
+            <span
+              key={t.id}
+              className="px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{ background: `${t.color}22`, color: t.color, border: `1px solid ${t.color}55` }}
+            >
+              {t.name}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="px-4 md:px-8 max-w-3xl mx-auto w-full">
         <div className="border-b border-surface-2" />
       </div>
