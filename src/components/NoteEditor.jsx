@@ -198,11 +198,14 @@ export default function NoteEditor({ onLinksChange }) {
     },
   })
 
-  // Sync content when note loads
+  // Sync content when the note changes. Always reset the editor — including
+  // clearing it for notes with empty content — so a new note never shows the
+  // previously-open note's body.
   useEffect(() => {
-    if (editor && note?.content && Object.keys(note.content).length > 0) {
-      editor.commands.setContent(note.content, false)
-    }
+    if (!editor) return
+    const c = note?.content
+    const hasContent = c && typeof c === 'object' && Object.keys(c).length > 0
+    editor.commands.setContent(hasContent ? c : '', false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, note?.id])
 
@@ -346,12 +349,15 @@ export default function NoteEditor({ onLinksChange }) {
         </div>
       </div>
 
-      {/* Title */}
-      <div className="px-4 md:px-8 pt-5 md:pt-8 pb-2 max-w-3xl mx-auto w-full">
+      {/* Title — a distinct, contrasting field so it reads clearly as the title
+          (not body text), capped at 100 characters. */}
+      <div className="px-4 md:px-8 pt-4 md:pt-6 pb-2 max-w-3xl mx-auto w-full">
+        <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-1.5">Title</label>
         <input
           ref={titleRef}
           type="text"
           value={title}
+          maxLength={100}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={onTitleBlur}
           onKeyDown={(e) => {
@@ -361,9 +367,12 @@ export default function NoteEditor({ onLinksChange }) {
               editor?.commands.focus('start')
             }
           }}
-          placeholder="Untitled"
-          className="w-full text-3xl md:text-4xl font-bold bg-transparent text-white outline-none placeholder-surface-3"
+          placeholder="Note title…"
+          className="w-full text-2xl md:text-3xl font-bold text-white bg-surface-2/50 border border-surface-3 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-accent focus:border-accent placeholder-ink-faint transition-colors"
         />
+      </div>
+      <div className="px-4 md:px-8 max-w-3xl mx-auto w-full">
+        <div className="border-b border-surface-2" />
       </div>
 
       {/* Editor */}
