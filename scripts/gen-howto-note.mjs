@@ -104,21 +104,29 @@ function toText(node) {
 const contentText = toText(doc).replace(/\n{2,}/g, '\n').trim()
 
 // ── Emit idempotent SQL ──────────────────────────────────────────────────────
-const sqlEscape = (s) => s.replace(/'/g, "''")
-const contentJson = sqlEscape(JSON.stringify(doc))
-const contentTextEsc = sqlEscape(contentText)
+// Use dollar-quoting for the JSON and text blobs so no apostrophe/quote/newline
+// in the note prose can ever break the statement (robust to copy-paste too).
+const TAG = 'intranotes_howto'
+const contentJson = JSON.stringify(doc)
+
+// Safety: dollar-quote tag must not appear inside the content.
+const marker = `$${TAG}$`
+if (contentJson.includes(marker) || contentText.includes(marker)) {
+  throw new Error(`Dollar-quote tag ${marker} collides with content; choose another tag.`)
+}
 
 const sql = `-- Default "How to use IntraNotes" guide note.
--- Idempotent: only inserts if a note with this title doesn't already exist.
+-- Idempotent: only inserts if a note with this title does not already exist.
+-- JSON/text use dollar-quoting ($${TAG}$) so no escaping is needed.
 
 insert into notes (title, content, content_text, folder_id)
 select
-  '${sqlEscape(TITLE)}',
-  '${contentJson}'::jsonb,
-  '${contentTextEsc}',
+  '${TITLE.replace(/'/g, "''")}',
+  $${TAG}$${contentJson}$${TAG}$::jsonb,
+  $${TAG}$${contentText}$${TAG}$,
   '${ROOT_FOLDER}'
 where not exists (
-  select 1 from notes where title = '${sqlEscape(TITLE)}'
+  select 1 from notes where title = '${TITLE.replace(/'/g, "''")}'
 );
 `
 
