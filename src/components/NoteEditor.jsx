@@ -23,12 +23,13 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code,
   List, ListOrdered, CheckSquare, Table as TableIcon, Image as ImageIcon,
   AlignLeft, AlignCenter, AlignRight, Sparkles, Loader2, Link as LinkIcon,
-  Pen
+  Pen, Wand2
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { fetchNote, updateNote, syncLinks, uploadMedia, createNote } from '../lib/supabase'
 import { cacheNote, enqueueOutbox } from '../lib/offline'
 import { generateEmbedding, suggestLinks, summarizeUrl, extractWikiLinks } from '../lib/ai'
+import { organizeSingleNote } from '../lib/librarian'
 import toast from 'react-hot-toast'
 
 // Excalidraw is heavy (~2 MB) — only load it when the drawing pad opens.
@@ -251,6 +252,27 @@ export default function NoteEditor({ onLinksChange }) {
     if (editor) doSave(editor.getJSON())
   }
 
+  // AI librarian: tag this note + link unlinked mentions of other notes.
+  async function handleOrganize() {
+    if (!editor) return
+    setAiLoading(true)
+    try {
+      await doSave(editor.getJSON()) // work on the latest content
+      const r = await organizeSingleNote(id, { tags: true, links: true })
+      const fresh = await fetchNote(id)
+      setNote(fresh)
+      if (fresh?.content && Object.keys(fresh.content).length > 0) {
+        editor.commands.setContent(fresh.content, false)
+      }
+      if (onLinksChange) onLinksChange()
+      toast.success(`Organized · +${r.tagsAdded} tag${r.tagsAdded === 1 ? '' : 's'} · +${r.linksAdded} link${r.linksAdded === 1 ? '' : 's'}`)
+    } catch (e) {
+      toast.error('Organize failed: ' + e.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   // AI: suggest links
   async function handleSuggestLinks() {
     if (!editor) return
@@ -339,8 +361,11 @@ export default function NoteEditor({ onLinksChange }) {
         <ToolBtn onClick={() => setShowDrawing(true)} title="Drawing pad"><Pen size={14}/></ToolBtn>
         <ToolBtn onClick={() => setShowUrlModal(true)} title="Summarize URL"><LinkIcon size={14}/></ToolBtn>
         <Sep />
+        <ToolBtn onClick={handleOrganize} disabled={aiLoading} title="AI: tag & link this note">
+          {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Wand2 size={14}/>}
+        </ToolBtn>
         <ToolBtn onClick={handleSuggestLinks} disabled={aiLoading} title="AI: suggest links">
-          {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Sparkles size={14}/>}
+          <Sparkles size={14}/>
         </ToolBtn>
 
         <div className="ml-auto flex items-center gap-2 text-xs text-ink-faint">

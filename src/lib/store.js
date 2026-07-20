@@ -59,6 +59,11 @@ export const useStore = create(
     openIntake: (prefill = null) => set({ intakeOpen: true, intakePrefill: prefill }),
     closeIntake: () => set({ intakeOpen: false, intakePrefill: null }),
 
+    // Organize-vault (AI librarian) modal
+    organizeOpen: false,
+    openOrganize: () => set({ organizeOpen: true }),
+    closeOrganize: () => set({ organizeOpen: false }),
+
     // ── Offline ───────────────────────────────────────────────────────────
     isOnline: navigator.onLine,
     setIsOnline: (v) => set({ isOnline: v }),

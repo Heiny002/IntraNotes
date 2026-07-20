@@ -44,6 +44,19 @@ export async function summarizeUrl(url) {
 }
 
 /**
+ * Librarian: get tags + which candidate titles are genuine references for a note.
+ * @returns {Promise<{tags: string[], link_titles: string[]}>}
+ */
+export async function organizeNote({ title, text, existingTags, candidateTitles }) {
+  return callFunction('organize-note', {
+    title,
+    text,
+    existing_tags: existingTags ?? [],
+    candidate_titles: candidateTitles ?? [],
+  })
+}
+
+/**
  * Hybrid QMD search
  * @returns {Promise<{results: Array, decomposed: object}>}
  */

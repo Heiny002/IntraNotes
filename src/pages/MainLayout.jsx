@@ -13,6 +13,7 @@ import Sidebar from '../components/Sidebar'
 import NoteEditor from '../components/NoteEditor'
 import SearchModal from '../components/SearchModal'
 import IntakeModal from '../components/IntakeModal'
+import OrganizeVaultModal from '../components/OrganizeVaultModal'
 import BacklinksPanel from '../components/BacklinksPanel'
 import TagBrowser from '../components/TagBrowser'
 import GraphView from '../components/GraphView'
@@ -42,7 +43,7 @@ export default function MainLayout() {
     setFolders, setNotes, setTags,
     sidebarOpen, toggleSidebar, setSidebarOpen, rightPanelMode, setRightPanelMode,
     activeNoteId, searchOpen, setSearchOpen, isOnline,
-    setOutboxCount, intakeOpen, openIntake,
+    setOutboxCount, intakeOpen, openIntake, organizeOpen,
   } = useStore()
 
   const loadData = useCallback(async () => {
@@ -202,6 +203,9 @@ export default function MainLayout() {
 
       {/* Intake modal (paste text / add URL) */}
       {intakeOpen && <IntakeModal />}
+
+      {/* Organize-vault (AI librarian) modal */}
+      {organizeOpen && <OrganizeVaultModal />}
     </div>
   )
 }

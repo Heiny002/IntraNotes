@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   ChevronRight, ChevronDown, FolderPlus, FilePlus,
   LayoutDashboard, Tag, GitBranch, LogOut, WifiOff,
-  Menu, Plus
+  Menu, Plus, Wand2
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { createFolder, deleteNote } from '../lib/supabase'
@@ -136,7 +136,7 @@ function NoteItem({ note, depth, active, onRefresh }) {
 }
 
 export default function Sidebar({ onRefresh }) {
-  const { folders, notes, isOnline, outboxCount, toggleSidebar, setRightPanelMode, rightPanelMode, openIntake } = useStore()
+  const { folders, notes, isOnline, outboxCount, toggleSidebar, setRightPanelMode, rightPanelMode, openIntake, openOrganize } = useStore()
   const navigate = useNavigate()
 
   const rootFolders = folders.filter((f) => f.parent_id === null)
@@ -182,6 +182,12 @@ export default function Sidebar({ onRefresh }) {
           title="Backlinks"
           className={`p-2 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'backlinks' ? 'text-accent' : 'text-ink-muted'}`}
         ><LayoutDashboard size={16} /></button>
+        <span className="w-px h-5 bg-surface-2 mx-0.5" />
+        <button
+          onClick={() => { openOrganize(); closeDrawerIfMobile() }}
+          title="Organize vault (AI tag + link)"
+          className="p-2 rounded hover:bg-surface-2 transition-colors text-ink-muted hover:text-accent"
+        ><Wand2 size={16} /></button>
       </div>
 
       {/* Folder tree */}
