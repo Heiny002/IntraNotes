@@ -158,12 +158,14 @@ export async function fetchMedia(noteId) {
 // ── Graph data ─────────────────────────────────────────────────────────────
 
 export async function fetchGraphData() {
-  const [{ data: notes }, { data: links }] = await Promise.all([
-    supabase.from('notes').select('id, title'),
+  const [{ data: notes }, { data: links }, { data: noteTags }] = await Promise.all([
+    supabase.from('notes').select('id, title, folder_id'),
     supabase.from('links').select('source_note_id, target_note_id'),
+    supabase.from('note_tags').select('note_id, tag_id'),
   ])
   return {
-    nodes: (notes || []).map((n) => ({ id: n.id, label: n.title })),
+    nodes: (notes || []).map((n) => ({ id: n.id, label: n.title, folder_id: n.folder_id })),
     links: (links || []).map((l) => ({ source: l.source_note_id, target: l.target_note_id })),
+    noteTags: (noteTags || []).map((nt) => ({ note_id: nt.note_id, tag_id: nt.tag_id })),
   }
 }
