@@ -23,10 +23,10 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code,
   List, ListOrdered, CheckSquare, Table as TableIcon, Image as ImageIcon,
   AlignLeft, AlignCenter, AlignRight, Loader2, Link as LinkIcon,
-  Pen, Wand2
+  Pen, Wand2, Tag, LayoutDashboard
 } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { fetchNote, updateNote, syncLinks, uploadMedia, createNote, fetchNoteTags } from '../lib/supabase'
+import { fetchNote, updateNote, syncLinks, uploadMedia, createNote } from '../lib/supabase'
 import { cacheNote, enqueueOutbox } from '../lib/offline'
 import { generateEmbedding, summarizeUrl, extractWikiLinks } from '../lib/ai'
 import { organizeSingleNote } from '../lib/librarian'
@@ -113,7 +113,7 @@ const AUTOSAVE_DELAY = 1500
 export default function NoteEditor({ onLinksChange }) {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isOnline, setActiveNoteId } = useStore()
+  const { isOnline, setActiveNoteId, setRightPanelMode, rightPanelMode } = useStore()
 
   const [note, setNote] = useState(null)
   const [title, setTitle] = useState('')
@@ -122,17 +122,9 @@ export default function NoteEditor({ onLinksChange }) {
   const [showUrlModal, setShowUrlModal] = useState(false)
   const [urlInput, setUrlInput] = useState('')
   const [showDrawing, setShowDrawing] = useState(false)
-  const [noteTags, setNoteTagsList] = useState([])
 
   const saveTimer = useRef(null)
   const titleRef = useRef(null)
-
-  // Load this note's tags for the inline chip row.
-  const refreshTags = useCallback(() => {
-    if (!id) return
-    fetchNoteTags(id).then(setNoteTagsList).catch(() => {})
-  }, [id])
-  useEffect(() => { refreshTags() }, [refreshTags])
 
   // Navigate to a [[wiki-linked]] note, creating it if it doesn't exist yet.
   async function handleWikiLinkClick(title) {
@@ -271,7 +263,6 @@ export default function NoteEditor({ onLinksChange }) {
         editor.commands.setContent(fresh.content, false)
       }
       if (onLinksChange) onLinksChange()
-      refreshTags()
       toast.success(`Organized · +${r.tagsAdded} tag${r.tagsAdded === 1 ? '' : 's'} · +${r.linksAdded} link${r.linksAdded === 1 ? '' : 's'}`)
     } catch (e) {
       toast.error('Organize failed: ' + e.message)
@@ -366,7 +357,23 @@ export default function NoteEditor({ onLinksChange }) {
       {/* Title — a distinct, contrasting field so it reads clearly as the title
           (not body text), capped at 100 characters. */}
       <div className="px-4 md:px-8 pt-4 md:pt-6 pb-2 max-w-3xl mx-auto w-full">
-        <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-1.5">Title</label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Title</label>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setRightPanelMode('tags')}
+              title="Tags"
+              className={`p-1.5 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'tags' ? 'text-accent' : 'text-ink-muted hover:text-ink'}`}
+            ><Tag size={15} /></button>
+            <button
+              type="button"
+              onClick={() => setRightPanelMode('backlinks')}
+              title="Backlinks"
+              className={`p-1.5 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'backlinks' ? 'text-accent' : 'text-ink-muted hover:text-ink'}`}
+            ><LayoutDashboard size={15} /></button>
+          </div>
+        </div>
         <input
           ref={titleRef}
           type="text"
@@ -385,20 +392,6 @@ export default function NoteEditor({ onLinksChange }) {
           className="w-full text-2xl md:text-3xl font-bold text-white bg-surface-2/50 border border-surface-3 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-accent focus:border-accent placeholder-ink-faint transition-colors"
         />
       </div>
-      {/* Tags for this note */}
-      {noteTags.length > 0 && (
-        <div className="px-4 md:px-8 pt-2 pb-1 max-w-3xl mx-auto w-full flex flex-wrap gap-1.5">
-          {noteTags.map((t) => (
-            <span
-              key={t.id}
-              className="px-2 py-0.5 rounded-full text-xs font-medium"
-              style={{ background: `${t.color}22`, color: t.color, border: `1px solid ${t.color}55` }}
-            >
-              {t.name}
-            </span>
-          ))}
-        </div>
-      )}
       <div className="px-4 md:px-8 max-w-3xl mx-auto w-full">
         <div className="border-b border-surface-2" />
       </div>

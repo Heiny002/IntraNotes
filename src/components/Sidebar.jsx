@@ -168,9 +168,9 @@ export default function Sidebar({ onRefresh }) {
         ><Plus size={16} /></button>
         <span className="w-px h-5 bg-surface-2 mx-0.5" />
         <button
-          onClick={() => { setRightPanelMode('graph'); navigate('/'); closeDrawerIfMobile() }}
-          title="Graph view"
-          className={`p-2 rounded hover:bg-surface-2 transition-colors ${rightPanelMode === 'graph' ? 'text-accent' : 'text-ink-muted'}`}
+          onClick={() => { setRightPanelMode(null); navigate('/'); closeDrawerIfMobile() }}
+          title="Graph (home)"
+          className="p-2 rounded hover:bg-surface-2 transition-colors text-ink-muted hover:text-ink"
         ><GitBranch size={16} /></button>
         <button
           onClick={() => { setRightPanelMode('tags'); closeDrawerIfMobile() }}

@@ -17,7 +17,6 @@ import OrganizeVaultModal from '../components/OrganizeVaultModal'
 import BacklinksPanel from '../components/BacklinksPanel'
 import TagBrowser from '../components/TagBrowser'
 import GraphView from '../components/GraphView'
-import WelcomeScreen from '../components/WelcomeScreen'
 
 // PWA share-target landing: /share?url=&text=&title= opens the intake prefilled.
 function ShareHandler() {
@@ -175,7 +174,7 @@ export default function MainLayout() {
 
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           <Routes>
-            <Route path="/" element={<WelcomeScreen />} />
+            <Route path="/" element={<GraphView />} />
             <Route path="/note/:id" element={<NoteEditor onLinksChange={loadData} />} />
             <Route path="/share" element={<ShareHandler />} />
           </Routes>
