@@ -21,3 +21,16 @@ export function flattenFolders(folders) {
   walk('__root__', 0)
   return out
 }
+
+/** Ids of all folders nested (at any depth) under `folderId`. */
+export function getDescendantIds(folderId, folders) {
+  const out = new Set()
+  const stack = [folderId]
+  while (stack.length) {
+    const id = stack.pop()
+    for (const f of folders) {
+      if (f.parent_id === id && !out.has(f.id)) { out.add(f.id); stack.push(f.id) }
+    }
+  }
+  return out
+}

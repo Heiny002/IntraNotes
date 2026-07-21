@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ChevronRight, ChevronDown, FolderPlus, FilePlus,
+  ChevronRight, ChevronDown, FolderPlus,
   LayoutDashboard, Tag, GitBranch, LogOut, WifiOff,
   Menu, Plus, Wand2
 } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { createFolder, deleteNote } from '../lib/supabase'
+import { createFolder, deleteNote, updateFolder, deleteFolder, updateNote } from '../lib/supabase'
 import { enqueueOutbox } from '../lib/offline'
 import { supabase } from '../lib/supabase'
+import FolderActionsMenu from './FolderActionsMenu'
 import toast from 'react-hot-toast'
 
 // On mobile the sidebar is an overlay drawer — close it after navigating so the
@@ -50,9 +51,46 @@ function FolderNode({ folder, depth = 0, notes, allFolders, onRefresh }) {
 
   async function handleNewFolder() {
     const name = prompt('Folder name:')
-    if (!name) return
+    if (!name || !name.trim()) return
     try {
-      await createFolder({ name, parent_id: folder.id, order: children.length })
+      await createFolder({ name: name.trim(), parent_id: folder.id, order: children.length })
+      onRefresh()
+    } catch (e) { toast.error(e.message) }
+  }
+
+  async function handleRename() {
+    const name = prompt('Rename folder:', folder.name)
+    if (!name || !name.trim() || name.trim() === folder.name) return
+    try {
+      await updateFolder(folder.id, { name: name.trim() })
+      onRefresh()
+    } catch (e) { toast.error(e.message) }
+  }
+
+  async function handleMove(parentId) {
+    try {
+      await updateFolder(folder.id, { parent_id: parentId })
+      onRefresh()
+    } catch (e) { toast.error(e.message) }
+  }
+
+  // Delete the folder but keep its contents: move direct notes and subfolders
+  // up to this folder's parent (or top level), then delete.
+  async function handleDeleteFolder() {
+    const subFolders = allFolders.filter((f) => f.parent_id === folder.id)
+    const notesHere = notes.filter((n) => n.folder_id === folder.id)
+    const parts = []
+    if (notesHere.length) parts.push(`${notesHere.length} note${notesHere.length === 1 ? '' : 's'}`)
+    if (subFolders.length) parts.push(`${subFolders.length} subfolder${subFolders.length === 1 ? '' : 's'}`)
+    const where = folder.parent_id ? 'up a level' : 'to the top level'
+    const msg = parts.length
+      ? `Delete "${folder.name}"? Its ${parts.join(' and ')} will move ${where}.`
+      : `Delete "${folder.name}"?`
+    if (!confirm(msg)) return
+    try {
+      for (const c of subFolders) await updateFolder(c.id, { parent_id: folder.parent_id })
+      for (const n of notesHere) await updateNote(n.id, { folder_id: folder.parent_id })
+      await deleteFolder(folder.id)
       onRefresh()
     } catch (e) { toast.error(e.message) }
   }
@@ -68,15 +106,16 @@ function FolderNode({ folder, depth = 0, notes, allFolders, onRefresh }) {
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </span>
         <span className="flex-1 truncate text-xs font-semibold uppercase tracking-wider text-ink-faint">{folder.name}</span>
-        <span className="flex md:hidden md:group-hover:flex gap-0.5">
-          <button onClick={(e) => { e.stopPropagation(); handleNewNote() }} title="New note"
-            className="p-1 rounded hover:bg-surface-3 text-ink-muted hover:text-ink">
-            <FilePlus size={14} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); handleNewFolder() }} title="New folder"
-            className="p-1 rounded hover:bg-surface-3 text-ink-muted hover:text-ink">
-            <FolderPlus size={14} />
-          </button>
+        <span className="flex md:hidden md:group-hover:flex" onClick={(e) => e.stopPropagation()}>
+          <FolderActionsMenu
+            folder={folder}
+            folders={allFolders}
+            onNewNote={handleNewNote}
+            onNewFolder={handleNewFolder}
+            onRename={handleRename}
+            onMove={handleMove}
+            onDelete={handleDeleteFolder}
+          />
         </span>
       </div>
 
@@ -138,8 +177,11 @@ function NoteItem({ note, depth, active, onRefresh }) {
 export default function Sidebar({ onRefresh }) {
   const { folders, notes, isOnline, outboxCount, toggleSidebar, setRightPanelMode, rightPanelMode, openIntake, openOrganize } = useStore()
   const navigate = useNavigate()
+  const { id: activeNoteId } = useParams()
 
   const rootFolders = folders.filter((f) => f.parent_id === null)
+  const folderIdSet = new Set(folders.map((f) => f.id))
+  const uncategorized = notes.filter((n) => !n.folder_id || !folderIdSet.has(n.folder_id))
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -219,6 +261,15 @@ export default function Sidebar({ onRefresh }) {
             onRefresh={onRefresh}
           />
         ))}
+
+        {uncategorized.length > 0 && (
+          <div className="mt-2">
+            <div className="px-3 pt-1 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Uncategorized</div>
+            {uncategorized.map((n) => (
+              <NoteItem key={n.id} note={n} depth={1} active={n.id === activeNoteId} onRefresh={onRefresh} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Footer */}
