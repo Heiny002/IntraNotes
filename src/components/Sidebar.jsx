@@ -145,6 +145,15 @@ export default function Sidebar({ onRefresh }) {
     await supabase.auth.signOut()
   }
 
+  async function handleNewRootFolder() {
+    const name = prompt('New folder name:')
+    if (!name || !name.trim()) return
+    try {
+      await createFolder({ name: name.trim(), parent_id: null, order: rootFolders.length })
+      onRefresh()
+    } catch (e) { toast.error(e.message) }
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -191,7 +200,15 @@ export default function Sidebar({ onRefresh }) {
       </div>
 
       {/* Folder tree */}
-      <div className="flex-1 overflow-y-auto py-2">
+      <div className="flex-1 overflow-y-auto py-1">
+        <div className="flex items-center px-3 pt-1 pb-0.5 group">
+          <span className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Folders</span>
+          <button
+            onClick={handleNewRootFolder}
+            title="New top-level folder"
+            className="p-1 rounded hover:bg-surface-2 text-ink-muted hover:text-ink"
+          ><FolderPlus size={14} /></button>
+        </div>
         {rootFolders.map((folder) => (
           <FolderNode
             key={folder.id}

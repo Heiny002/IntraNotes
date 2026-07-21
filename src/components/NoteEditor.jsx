@@ -32,6 +32,7 @@ import { generateEmbedding, summarizeUrl, extractWikiLinks } from '../lib/ai'
 import { organizeSingleNote } from '../lib/librarian'
 import { rankNotes } from '../lib/fuzzy'
 import WikiLinkMenu from './WikiLinkMenu'
+import FolderPicker from './FolderPicker'
 import toast from 'react-hot-toast'
 
 // Excalidraw is heavy (~2 MB) — only load it when the drawing pad opens.
@@ -117,6 +118,7 @@ export default function NoteEditor({ onLinksChange }) {
   const navigate = useNavigate()
   const { isOnline, setActiveNoteId, setRightPanelMode, rightPanelMode } = useStore()
   const allNotes = useStore((s) => s.notes)
+  const folders = useStore((s) => s.folders)
 
   const [note, setNote] = useState(null)
   const [title, setTitle] = useState('')
@@ -369,6 +371,20 @@ export default function NoteEditor({ onLinksChange }) {
     if (editor) doSave(editor.getJSON())
   }
 
+  // Move this note to another folder.
+  async function moveToFolder(folderId) {
+    if (!note || folderId === note.folder_id) return
+    try {
+      await updateNote(id, { folder_id: folderId })
+      setNote((n) => (n ? { ...n, folder_id: folderId } : n))
+      useStore.getState().updateNoteInList(id, { folder_id: folderId })
+      const dest = useStore.getState().folders.find((f) => f.id === folderId)
+      toast.success(`Moved to ${dest?.name || 'folder'}`)
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
+
   // AI librarian: tag this note + link unlinked mentions of other notes.
   async function handleOrganize() {
     if (!editor) return
@@ -479,6 +495,7 @@ export default function NoteEditor({ onLinksChange }) {
         <div className="flex items-center justify-between mb-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Title</label>
           <div className="flex items-center gap-1">
+            <FolderPicker folders={folders} value={note?.folder_id ?? null} onChange={moveToFolder} />
             <button
               type="button"
               onClick={() => setRightPanelMode('tags')}
