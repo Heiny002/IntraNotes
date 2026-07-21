@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState, lazy, Suspense } from 'react'
+import { useEffect, useRef, useCallback, useState, useMemo, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEditor, EditorContent, Extension } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -30,6 +30,8 @@ import { fetchNote, updateNote, syncLinks, uploadMedia, createNote } from '../li
 import { cacheNote, enqueueOutbox } from '../lib/offline'
 import { generateEmbedding, summarizeUrl, extractWikiLinks } from '../lib/ai'
 import { organizeSingleNote } from '../lib/librarian'
+import { rankNotes } from '../lib/fuzzy'
+import WikiLinkMenu from './WikiLinkMenu'
 import toast from 'react-hot-toast'
 
 // Excalidraw is heavy (~2 MB) — only load it when the drawing pad opens.
@@ -97,7 +99,7 @@ const WikiLinkExtension = Extension.create({
             const el = event.target?.closest?.('[data-wiki-title]')
             const title = el?.getAttribute('data-wiki-title')
             if (title) {
-              onClickLink(title)
+              onClickLink(title, { x: event.clientX, y: event.clientY })
               return true
             }
             return false
@@ -114,6 +116,7 @@ export default function NoteEditor({ onLinksChange }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const { isOnline, setActiveNoteId, setRightPanelMode, rightPanelMode } = useStore()
+  const allNotes = useStore((s) => s.notes)
 
   const [note, setNote] = useState(null)
   const [title, setTitle] = useState('')
@@ -123,29 +126,130 @@ export default function NoteEditor({ onLinksChange }) {
   const [urlInput, setUrlInput] = useState('')
   const [showDrawing, setShowDrawing] = useState(false)
 
+  // [[wiki-link]] autocomplete / chooser menu.
+  // mode 'type' = live while typing (has from/to text range); 'click' = chooser
+  // opened by clicking an unresolved link.
+  const [menu, setMenu] = useState(null)
+  const [menuIdx, setMenuIdx] = useState(0)
+
   const saveTimer = useRef(null)
   const titleRef = useRef(null)
+  const menuStateRef = useRef({ active: false, items: [] })
+  const menuElRef = useRef(null)
+  const allNotesRef = useRef(allNotes)
+  allNotesRef.current = allNotes
 
-  // Navigate to a [[wiki-linked]] note, creating it if it doesn't exist yet.
-  async function handleWikiLinkClick(title) {
-    const state = useStore.getState()
-    const existing = state.notes.find(
+  // Ranked items for the [[ menu: fuzzy note matches + an explicit create option.
+  const menuItems = useMemo(() => {
+    if (!menu) return []
+    const q = (menu.query || '').trim()
+    const ranked = rankNotes(q, allNotes.filter((n) => n.id !== id), 6)
+      .map((x) => ({ type: 'note', key: x.note.id, id: x.note.id, title: x.note.title, score: x.score }))
+    const exact = allNotes.some((n) => (n.title || '').trim().toLowerCase() === q.toLowerCase())
+    if (q && !exact) ranked.push({ type: 'create', key: '__create__', title: q })
+    return ranked
+  }, [menu, allNotes, id])
+
+  // Reset highlight when the query/menu changes.
+  useEffect(() => { setMenuIdx(0) }, [menu?.query, menu?.mode])
+
+  // Latest snapshot for the editor keydown handler (which is captured once at
+  // editor creation). Written during render; only ever read in event handlers,
+  // never during render, so this is safe.
+  menuStateRef.current = {
+    active: !!menu && menuItems.length > 0,
+    menu,
+    items: menuItems,
+    idx: menuIdx,
+    setIdx: setMenuIdx,
+    select: selectMenuItem,
+    close: () => setMenu(null),
+  }
+
+  // Dismiss the menu on an outside click or Escape.
+  useEffect(() => {
+    if (!menu) return
+    function onDown(e) {
+      if (menuElRef.current && !menuElRef.current.contains(e.target)) setMenu(null)
+    }
+    function onKey(e) { if (e.key === 'Escape') setMenu(null) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menu])
+
+  // Detect an open `[[query` before the caret and position the menu there.
+  function syncTypeMenu(ed) {
+    const sel = ed.state.selection
+    if (!sel.empty) { setMenu((cur) => (cur?.mode === 'type' ? null : cur)); return }
+    const $from = sel.$from
+    const before = $from.parent.textBetween(0, $from.parentOffset, '\n', '￼')
+    const match = /\[\[([^[\]\n]*)$/.exec(before)
+    if (!match) { setMenu((cur) => (cur?.mode === 'type' ? null : cur)); return }
+    const query = match[1]
+    const to = sel.from
+    const from = to - (query.length + 2)
+    let coords
+    try { coords = ed.view.coordsAtPos(to) } catch { return }
+    setMenu({ mode: 'type', query, from, to, x: coords.left, y: coords.bottom + 4 })
+  }
+
+  // Click a [[wiki-link]]: resolve to a note, or (if none) open the chooser so
+  // the user can pick a fuzzy match or explicitly create — never auto-create.
+  function handleWikiLinkClick(title, coords) {
+    const existing = allNotesRef.current.find(
       (n) => (n.title || '').trim().toLowerCase() === title.trim().toLowerCase()
     )
     if (existing) {
       navigate(`/note/${existing.id}`)
       return
     }
+    setMenu({ mode: 'click', query: title, from: null, to: null, x: coords?.x ?? 240, y: (coords?.y ?? 200) + 10 })
+    setMenuIdx(0)
+  }
+
+  // Create a note on the fly in the current note's folder.
+  async function createOnFly(rawTitle) {
+    const t = (rawTitle || '').trim()
+    if (!t) return null
+    const state = useStore.getState()
     const current = state.notes.find((n) => n.id === state.activeNoteId)
     const folder_id = current?.folder_id ?? '00000000-0000-0000-0000-000000000001'
     try {
-      const created = await createNote({ title: title.trim(), content: {}, folder_id })
+      const created = await createNote({ title: t, content: {}, folder_id })
       state.addNote(created)
-      toast.success(`Created "${title.trim()}"`)
-      navigate(`/note/${created.id}`)
+      return created
     } catch (e) {
       toast.error(e.message)
+      return null
     }
+  }
+
+  // Selecting an item from the [[ menu.
+  async function selectMenuItem(item) {
+    const m = menuStateRef.current.menu
+    if (!m || !item) return
+    if (m.mode === 'type') {
+      let linkTitle = item.title
+      if (item.type === 'create') {
+        const created = await createOnFly(item.title)
+        if (!created) { setMenu(null); return }
+        linkTitle = created.title
+      }
+      editor?.chain().focus().insertContentAt({ from: m.from, to: m.to }, `[[${linkTitle}]]`).run()
+    } else {
+      // click mode — navigate (creating first if needed)
+      if (item.type === 'create') {
+        const created = await createOnFly(item.title)
+        if (created) navigate(`/note/${created.id}`)
+      } else {
+        navigate(`/note/${item.id}`)
+      }
+    }
+    setMenu(null)
   }
 
   useEffect(() => {
@@ -191,9 +295,22 @@ export default function NoteEditor({ onLinksChange }) {
     content: '',
     editorProps: {
       attributes: { class: 'tiptap px-4 md:px-8 py-6 max-w-3xl mx-auto' },
+      handleKeyDown: (_view, event) => {
+        const st = menuStateRef.current
+        if (!st.active || !st.items.length) return false
+        if (event.key === 'ArrowDown') { st.setIdx((st.idx + 1) % st.items.length); return true }
+        if (event.key === 'ArrowUp') { st.setIdx((st.idx - 1 + st.items.length) % st.items.length); return true }
+        if (event.key === 'Enter' || event.key === 'Tab') { st.select(st.items[st.idx]); return true }
+        if (event.key === 'Escape') { st.close(); return true }
+        return false
+      },
     },
     onUpdate: ({ editor }) => {
       scheduleSave(editor.getJSON())
+      syncTypeMenu(editor)
+    },
+    onSelectionUpdate: ({ editor }) => {
+      syncTypeMenu(editor)
     },
   })
 
@@ -402,6 +519,19 @@ export default function NoteEditor({ onLinksChange }) {
       <div className="flex-1 overflow-y-auto">
         <EditorContent editor={editor} />
       </div>
+
+      {/* [[wiki-link]] autocomplete / chooser */}
+      {menu && menuItems.length > 0 && (
+        <WikiLinkMenu
+          menuRef={menuElRef}
+          x={menu.x}
+          y={menu.y}
+          items={menuItems}
+          activeIndex={menuIdx}
+          onHover={setMenuIdx}
+          onSelect={selectMenuItem}
+        />
+      )}
 
       {/* URL Summarize Modal */}
       {showUrlModal && (
