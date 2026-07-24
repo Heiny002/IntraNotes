@@ -9,6 +9,7 @@ export default function IntakeModal() {
   const navigate = useNavigate()
   const { intakePrefill, closeIntake } = useStore()
   const [mode, setMode] = useState(intakePrefill?.mode || 'text')
+  const [noteTitle, setNoteTitle] = useState('')
   const [text, setText] = useState(intakePrefill?.mode === 'text' ? (intakePrefill?.value || '') : '')
   const [url, setUrl] = useState(intakePrefill?.mode === 'url' ? (intakePrefill?.value || '') : '')
   const [busy, setBusy] = useState(false)
@@ -45,7 +46,7 @@ export default function IntakeModal() {
         toast.dismiss(t)
         toast.success(res.scraped ? 'Article saved & summarized' : 'Saved to Uploads (link only)')
       } else {
-        note = await createNoteFromText(text)
+        note = await createNoteFromText(text, noteTitle)
         toast.success('Saved to Uploads')
       }
       closeIntake()
@@ -88,14 +89,24 @@ export default function IntakeModal() {
 
         <div className="p-3">
           {mode === 'text' ? (
-            <textarea
-              ref={inputRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Paste or type text here…"
-              rows={8}
-              className="w-full resize-y rounded-lg border border-surface-3 bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-accent placeholder-ink-faint"
-            />
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={noteTitle}
+                onChange={(e) => setNoteTitle(e.target.value)}
+                maxLength={100}
+                placeholder="Title (optional — defaults to the first line)"
+                className="w-full rounded-lg border border-surface-3 bg-surface-2 px-3 py-2 text-sm font-medium text-ink outline-none focus:ring-2 focus:ring-accent placeholder-ink-faint"
+              />
+              <textarea
+                ref={inputRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Write or paste the note body here…"
+                rows={8}
+                className="w-full resize-y rounded-lg border border-surface-3 bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-accent placeholder-ink-faint"
+              />
+            </div>
           ) : (
             <>
               <input

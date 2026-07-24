@@ -490,8 +490,9 @@ export default function NoteEditor({ onLinksChange }) {
       </div>
 
       {/* Title — a distinct, contrasting field so it reads clearly as the title
-          (not body text), capped at 100 characters. */}
-      <div className="px-4 md:px-8 pt-4 md:pt-6 pb-2 max-w-3xl mx-auto w-full">
+          (not body text), capped at 100 characters. Stays pinned above the
+          scrolling body. */}
+      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-2 max-w-3xl mx-auto w-full">
         <div className="flex items-center justify-between mb-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Title</label>
           <div className="flex items-center gap-1">
@@ -528,12 +529,13 @@ export default function NoteEditor({ onLinksChange }) {
           className="w-full text-2xl md:text-3xl font-bold text-white bg-surface-2/50 border border-surface-3 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-accent focus:border-accent placeholder-ink-faint transition-colors"
         />
       </div>
-      <div className="px-4 md:px-8 max-w-3xl mx-auto w-full">
+      <div className="shrink-0 px-4 md:px-8 max-w-3xl mx-auto w-full">
         <div className="border-b border-surface-2" />
       </div>
 
-      {/* Editor */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Editor — the only scrolling region; min-h-0 lets it scroll inside the
+          flex column instead of pushing the header off-screen. */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <EditorContent editor={editor} />
       </div>
 

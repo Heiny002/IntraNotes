@@ -42,13 +42,16 @@ export function textToDoc(text) {
   return { type: 'doc', content: paragraphs.length ? paragraphs : [{ type: 'paragraph' }] }
 }
 
-/** Create a note from pasted text, filed under Uploads. Returns the note. */
-export async function createNoteFromText(rawText) {
+/**
+ * Create a note from pasted text, filed under Uploads. Uses `explicitTitle`
+ * when given; otherwise falls back to the first non-empty line. Returns the note.
+ */
+export async function createNoteFromText(rawText, explicitTitle) {
   const text = String(rawText || '').trim()
   if (!text) throw new Error('Nothing to save')
   const folder_id = await getOrCreateUploadsFolder()
   const firstLine = text.split('\n').find((l) => l.trim()) || 'Pasted note'
-  const title = firstLine.trim().slice(0, 80)
+  const title = ((explicitTitle || '').trim() || firstLine.trim()).slice(0, 100)
   const note = await createNote({
     title,
     content: textToDoc(text),
