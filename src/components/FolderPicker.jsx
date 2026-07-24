@@ -6,7 +6,7 @@ import { flattenFolders } from '../lib/folders'
  * Compact "move to folder" dropdown. Shows the current folder; opens a
  * depth-indented list of all folders (so nested folders are visible).
  */
-export default function FolderPicker({ folders, value, onChange }) {
+export default function FolderPicker({ folders, value, onChange, up = false }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const flat = flattenFolders(folders)
@@ -32,7 +32,7 @@ export default function FolderPicker({ folders, value, onChange }) {
         <ChevronDown size={12} className="shrink-0" />
       </button>
       {open && (
-        <div className="absolute right-0 mt-1 w-56 max-h-72 overflow-y-auto rounded-lg border border-surface-2 bg-surface-1 shadow-2xl py-1 z-50">
+        <div className={`absolute right-0 w-56 max-h-60 overflow-y-auto rounded-lg border border-surface-2 bg-surface-1 shadow-2xl py-1 z-50 ${up ? 'bottom-full mb-1' : 'mt-1'}`}>
           {flat.map((f) => (
             <button
               key={f.id}

@@ -46,10 +46,10 @@ export function textToDoc(text) {
  * Create a note from pasted text, filed under Uploads. Uses `explicitTitle`
  * when given; otherwise falls back to the first non-empty line. Returns the note.
  */
-export async function createNoteFromText(rawText, explicitTitle) {
+export async function createNoteFromText(rawText, explicitTitle, folderId) {
   const text = String(rawText || '').trim()
   if (!text) throw new Error('Nothing to save')
-  const folder_id = await getOrCreateUploadsFolder()
+  const folder_id = folderId || await getOrCreateUploadsFolder()
   const firstLine = text.split('\n').find((l) => l.trim()) || 'Pasted note'
   const title = ((explicitTitle || '').trim() || firstLine.trim()).slice(0, 100)
   const note = await createNote({
@@ -85,10 +85,10 @@ async function applyTags(noteId, names) {
  * tag via the Edge Function; falls back to just saving the link if that fails.
  * Returns { note, scraped }.
  */
-export async function createNoteFromUrl(url) {
+export async function createNoteFromUrl(url, folderId) {
   const clean = String(url || '').trim()
   if (!isUrl(clean)) throw new Error('That doesn’t look like a valid URL')
-  const folder_id = await getOrCreateUploadsFolder()
+  const folder_id = folderId || await getOrCreateUploadsFolder()
 
   let title = clean
   let content = null

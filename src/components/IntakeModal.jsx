@@ -3,17 +3,33 @@ import { useNavigate } from 'react-router-dom'
 import { FileText, Link as LinkIcon, Loader2, X, ClipboardPaste } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { createNoteFromText, createNoteFromUrl, isUrl } from '../lib/intake'
+import FolderPicker from './FolderPicker'
 import toast from 'react-hot-toast'
+
+function defaultFolderId(folders) {
+  const uploads = folders.find((f) => f.name === 'Uploads' && !f.parent_id)
+  if (uploads) return uploads.id
+  const root = folders.find((f) => !f.parent_id)
+  return root ? root.id : null
+}
 
 export default function IntakeModal() {
   const navigate = useNavigate()
   const { intakePrefill, closeIntake } = useStore()
+  const folders = useStore((s) => s.folders)
   const [mode, setMode] = useState(intakePrefill?.mode || 'text')
   const [noteTitle, setNoteTitle] = useState('')
   const [text, setText] = useState(intakePrefill?.mode === 'text' ? (intakePrefill?.value || '') : '')
   const [url, setUrl] = useState(intakePrefill?.mode === 'url' ? (intakePrefill?.value || '') : '')
+  const [folderId, setFolderId] = useState(() => defaultFolderId(folders))
   const [busy, setBusy] = useState(false)
   const inputRef = useRef(null)
+
+  // Fill in the default folder once folders have loaded.
+  useEffect(() => {
+    if (folderId == null && folders.length) setFolderId(defaultFolderId(folders))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folders])
 
   useEffect(() => { inputRef.current?.focus() }, [mode])
   useEffect(() => {
@@ -41,13 +57,13 @@ export default function IntakeModal() {
       let note
       if (mode === 'url') {
         const t = toast.loading('Fetching & saving…')
-        const res = await createNoteFromUrl(url)
+        const res = await createNoteFromUrl(url, folderId)
         note = res.note
         toast.dismiss(t)
-        toast.success(res.scraped ? 'Article saved & summarized' : 'Saved to Uploads (link only)')
+        toast.success(res.scraped ? 'Article saved & summarized' : 'Saved (link only)')
       } else {
-        note = await createNoteFromText(text, noteTitle)
-        toast.success('Saved to Uploads')
+        note = await createNoteFromText(text, noteTitle, folderId)
+        toast.success('Note saved')
       }
       closeIntake()
       navigate(`/note/${note.id}`)
@@ -119,13 +135,16 @@ export default function IntakeModal() {
                 className="w-full rounded-lg border border-surface-3 bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none focus:ring-2 focus:ring-accent placeholder-ink-faint"
               />
               <p className="mt-2 text-xs text-ink-faint">
-                The page is scraped, summarized, and tagged automatically, then filed under <span className="text-ink-muted">Uploads</span>.
+                The page is scraped, summarized, and tagged automatically.
               </p>
             </>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-surface-2">
+        <div className="flex items-center gap-2 px-4 py-3 border-t border-surface-2">
+          <span className="text-xs text-ink-faint shrink-0">Save to</span>
+          <FolderPicker folders={folders} value={folderId} onChange={setFolderId} up />
+          <div className="flex-1" />
           <button type="button" onClick={() => !busy && closeIntake()} className="px-3 py-2 text-sm text-ink-muted hover:text-ink">Cancel</button>
           <button
             type="submit"
